@@ -1,0 +1,44 @@
+# macOS
+.DS_Store
+
+# VS Code (keep ignored unless you want to share specific files)
+.vscode/
+# If you want to share these, uncomment:
+# !.vscode/settings.json
+# !.vscode/extensions.json
+# !.vscode/tasks.json
+
+# PlatformIO build output
+.pio/
+.cmake-build-*/
+*.ino.cpp
+
+# Indexing / caches
+.ccls-cache/
+.clangd/
+.cache/
+
+# Logs & temp
+*.log
+*.tmp
+
+# If you add helper scripts
+__pycache__/
+*.py[cod]
+node_modules/
+
+# Secrets / not-for-git
+include/secrets.h
+secrets/
+*.pem
+*.crt
+*.key
+
+# Optional: workspace files
+*.code-workspace
+
+# Ensuring that project build folders are always ignored
+**/.pio/
+**/.pio_build/
+**/.build/
+
