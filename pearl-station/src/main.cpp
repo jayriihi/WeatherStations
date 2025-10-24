@@ -48,50 +48,47 @@ void setup() {
   lora->setBandwidth(125.0);
   lora->setSpreadingFactor(9);
   lora->setCodingRate(5);
-  lora->setOutputPower(0);   // keep low if boards are close
+  lora->setOutputPower(-10);   // keep low if boards are close
 
   Serial.println("PEARL: LoRa OK, TX mode (2 repeats/min with jitter)");
 }
 
 void loop() {
-  static uint32_t lastMinute = 0;
+    static uint32_t lastMinute = 0;
 
-  uint32_t mNow = bootMinutes();
-  if (mNow == lastMinute) {
-    delay(20);
-    return;
-  }
-  lastMinute = mNow;
+    uint32_t mNow = bootMinutes();
+    if (mNow == lastMinute) {
+        delay(20);
+        return;
+    }
+    lastMinute = mNow;
 
-  // --- simulate wind values (replace with real sensor reads) ---
-  float ws_avg  = 12.0f + frand(-3.0f, 3.5f);
-  float ws_gust = ws_avg + frand(2.0f, 8.0f);
-  int   wd_deg  = (230 + (int)roundf(frand(-40.f, 40.f)) + 360) % 360;
+    // --- simulate wind values (replace with real sensor reads) ---
+    float ws_avg  = 12.0f + frand(-3.0f, 3.5f);
+    float ws_gust = ws_avg + frand(2.0f, 8.0f);
+    int   wd_deg  = (230 + (int)roundf(frand(-40.f, 40.f)) + 360) % 360;
 
-  // Authoritative counter: one new value per minute
-  uint32_t cnt = mNow;   // base de-dupes on this
+    // authoritative counter for dedupe
+    uint32_t cnt = mNow;
 
-  // Build form body (base forwards this as-is)
-  char buf[128];
-  snprintf(buf, sizeof(buf),
-           "wind_avg=%.1f&wind_max=%.1f&wind_dir=%d&cnt=%lu",
-           ws_avg, ws_gust, wd_deg, (unsigned long)cnt);
-  String body(buf);
+    // Build JSON that matches what Base expects
+    char buf[160];
+    snprintf(buf, sizeof(buf),
+      "{\"wind_avg\":%.1f,\"wind_max\":%.1f,\"wind_dir\":%d,\"cnt\":%lu}",
+      ws_avg, ws_gust, wd_deg, (unsigned long)cnt
+    );
 
-  Serial.printf("PEARL cnt=%lu\n", (unsigned long)cnt);
-  Serial.println("PEARL TX body: " + body);
+    String body(buf);
 
-  // --- Send 2 quick repeats then STOP until next minute ---
-  txOnce(body);
-  delay(120 + (esp_random() % 160));  // 120..279 ms random gap
-  txOnce(body);
+    Serial.println("PEARL TX body: " + body);
+    txOnce(body);
 
-  // --- Sleep until next minute boundary with small jitter ---
-  uint32_t ms     = millis();
-  uint32_t next   = ((ms / 60000UL) + 1) * 60000UL; // next minute edge
-  uint32_t jitter = 100 + (esp_random() % 400);     // 100..499 ms
-  uint32_t wait   = (next + jitter > ms) ? (next + jitter - ms) : 200;
-  delay(wait);
+    // sleep until next minute boundary, with jitter
+    uint32_t ms     = millis();
+    uint32_t next   = ((ms / 60000UL) + 1) * 60000UL; // start of next minute
+    uint32_t jitter = 200 + (esp_random() % 400);     // 200..599 ms
+    uint32_t wait   = (next + jitter > ms) ? (next + jitter - ms) : 500;
+    delay(wait);
 }
 
 // handy:

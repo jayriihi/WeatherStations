@@ -198,113 +198,156 @@ void setup() {
   lora->setBandwidth(125.0);
   lora->setSpreadingFactor(9);
   lora->setCodingRate(5);
-  lora->setRxBoostedGainMode(false);
+  lora->setRxBoostedGainMode(true);
   lora->setCRC(true);
 
   lora->startReceive();
   Serial.println("BASE: ready (listening)");
 }
 
-// ================== LOOP ==================
 void loop() {
   if (lora->getPacketLength() != 0) {
     String payload;
     int st = lora->readData(payload);
 
     if (st == RADIOLIB_ERR_NONE) {
+
       payload.trim();
       if (payload.length() == 0) {
         Serial.println("BASE: empty payload, skip");
-        lora->startReceive(); delay(10); return;
+        lora->standby();
+        delay(5);
+        lora->startReceive();
+        delay(20);
+        return;
       }
 
+      // reject obvious tail fragments that don't start a JSON object
+      if (payload[0] != '{') {
+        Serial.println("Packet does not start with '{' - skipping");
+        lora->standby();
+        delay(5);
+        lora->startReceive();
+        delay(20);
+        return;
+      }
+
+      // burst dedupe at RF level
       const uint32_t RF_DUP_MS = 5000UL;
       if (payload == g_lastRx && (millis() - g_lastRxMs) < RF_DUP_MS) {
         g_dupCount++;
-        if (millis() - g_dupLastLog > 20000UL) {            // quieter burst logging
+        if (millis() - g_dupLastLog > 20000UL) {
           Serial.printf("BASE: duplicate RF payload burst (+%u skipped)\n", g_dupCount);
           g_dupLastLog = millis();
           g_dupCount = 0;
         }
-        lora->startReceive(); delay(5); return;
+        lora->standby();
+        delay(5);
+        lora->startReceive();
+        delay(20);
+        return;
       }
+
       if (g_dupCount > 0) {
         Serial.printf("BASE: duplicate burst ended (total skipped=%u)\n", g_dupCount);
         g_dupCount = 0;
       }
+
       g_lastRx   = payload;
       g_lastRxMs = millis();
 
-      // Build form body from payload
-      String body;
-      if (payload.indexOf('=') != -1 && payload.indexOf('{') == -1) {
-        body = payload;
-        body.trim();
-        if (body.indexOf('&') == -1) {
-          Serial.println("Form payload missing '&' separators — skipping");
-          lora->startReceive(); delay(20); return;
-        }
-      } else {
-        StaticJsonDocument<256> d;
-        DeserializationError err = deserializeJson(d, payload);
-        if (err) {
-          Serial.println("Parse fail (neither form nor expected JSON)");
-          lora->startReceive(); delay(20); return;
-        }
+      // ---------- PARSE JSON FROM PEARL ----------
+      Serial.printf("RAW PAYLOAD: %s\n", payload.c_str());
 
-        float ws_avg  = d["ws_avg"]  | 0.0f;
-        float ws_gust = d["ws_gust"] | 0.0f;
-        int   wd_avg  = d["wd_avg"]  | 0;
-        long  cntJ    = d["cnt"]     | -1;
-
-        char buf[128];
-        if (cntJ >= 0) {
-          snprintf(buf, sizeof(buf),
-                   "wind_avg=%.1f&wind_max=%.1f&wind_dir=%d&cnt=%ld",
-                   ws_avg, ws_gust, wd_avg, cntJ);
-        } else {
-          snprintf(buf, sizeof(buf),
-                   "wind_avg=%.1f&wind_max=%.1f&wind_dir=%d",
-                   ws_avg, ws_gust, wd_avg);
-        }
-        body = String(buf);
+      StaticJsonDocument<256> d;
+      DeserializationError err = deserializeJson(d, payload);
+      if (err) {
+        Serial.println("Parse fail: bad JSON, skipping this packet");
+        lora->standby();
+        delay(5);
+        lora->startReceive();
+        delay(20);
+        return;
       }
 
-      Serial.printf("BODY: %s\n", body.c_str());
+      // Pearl sends: {"wind_avg":..,"wind_max":..,"wind_dir":..,"cnt":..}
+      float wind_avg = d["wind_avg"] | 0.0f;
+      float wind_max = d["wind_max"] | 0.0f;
+      int   wind_dir = d["wind_dir"] | 0;
+      long  cntJ     = d["cnt"]      | -1;
 
-      // Extract cnt
-      String   cntS = getFormVal(body, "cnt");
-      int32_t  cnt  = cntS.length() ? cntS.toInt() : -1;
+      Serial.printf("PARSED: wind_avg=%.1f wind_max=%.1f wind_dir=%d cnt=%ld\n",
+                    wind_avg, wind_max, wind_dir, cntJ);
 
-      // ---- NEW: in-flight guard (same cnt within short window) ----
+      // sanity filter: all-zero is almost always corruption, drop it
+      if (wind_avg == 0.0f && wind_max == 0.0f && wind_dir == 0) {
+        Serial.println("Packet looked valid but values are all zero; skipping as corrupted");
+        lora->standby();
+        delay(5);
+        lora->startReceive();
+        delay(20);
+        return;
+      }
+
+      // Build body for Google Apps Script (no cnt here)
+      char buf[128];
+      snprintf(buf, sizeof(buf),
+               "wind_avg=%.1f&wind_max=%.1f&wind_dir=%d",
+               wind_avg, wind_max, wind_dir);
+      String body(buf);
+
+      Serial.printf("BODY (clean): %s\n", body.c_str());
+
+      // use cnt from Pearl for dedupe/rate-limit logic
+      int32_t cnt = (int32_t)cntJ;
+
+      // ---- in-flight guard (same cnt within short window) ----
       if (cnt >= 0 && g_inflightCnt == cnt && (millis() - g_inflightMs) < INFLIGHT_GUARD_MS) {
         Serial.println("BASE: in-flight guard (same cnt), skip");
-        lora->startReceive(); delay(5); return;
+        lora->standby();
+        delay(5);
+        lora->startReceive();
+        delay(20);
+        return;
       }
 
-      // Counter de-dupe
+      // Counter de-dupe (don't post same cnt twice)
       if (cnt >= 0 && cnt == g_lastCntPosted) {
         Serial.println("BASE: duplicate by cnt, skip");
-        lora->startReceive(); delay(5); return;
+        lora->standby();
+        delay(5);
+        lora->startReceive();
+        delay(20);
+        return;
       }
 
       // One accepted post per minute
       if ((millis() - g_lastPostMs) < MIN_POST_MS) {
         Serial.println("BASE: rate-limit active, skip post");
-        lora->startReceive(); delay(5); return;
+        lora->standby();
+        delay(5);
+        lora->startReceive();
+        delay(20);
+        return;
       }
 
       // Body duplicate guard within window
       const uint32_t HTTP_DUP_MS = 70000UL;
       if (body == g_lastBody && (millis() - g_lastPostMs) < HTTP_DUP_MS) {
         Serial.println("BASE: duplicate body within window, skip");
-        lora->startReceive(); delay(5); return;
+        lora->standby();
+        delay(5);
+        lora->startReceive();
+        delay(20);
+        return;
       }
 
-      if (WiFi.status() != WL_CONNECTED) connectWiFi();
+      if (WiFi.status() != WL_CONNECTED) {
+        connectWiFi();
+      }
 
-      // ---- NEW: pause RF and mark in-flight before HTTP ----
-      lora->standby();                 // keep TLS calm (no RX IRQs)
+      // ---- pause RF and mark in-flight before HTTP ----
+      lora->standby();                 // keep TLS calm (no RX IRQs while HTTPS runs)
       g_inflightCnt = cnt;             // may be -1; fine
       g_inflightMs  = millis();
 
@@ -323,32 +366,40 @@ void loop() {
         Serial.printf("Client error (%d), skipping retry\n", code);
       }
 
-      // consider 400 from Google front-end benign for latching
+      // consider 400 from Google benign for latching
       if (code == 200 || code == 201 || code == 400) {
         g_lastBody   = body;
         g_lastPostMs = millis();
-        if (cnt >= 0) g_lastCntPosted = cnt;
+        if (cnt >= 0) {
+          g_lastCntPosted = cnt;
+        }
       } else {
         Serial.printf("POST not successful (code=%d)\n", code);
       }
 
-      // ---- NEW: always resume RF and manage in-flight window ----
+      // ---- resume RF and manage in-flight window ----
+      lora->standby();
+      delay(5);
       lora->startReceive();
       if ((millis() - g_inflightMs) >= INFLIGHT_GUARD_MS) {
         g_inflightCnt = -1;
       }
 
     } else {
+      // RX error case
       Serial.printf("BASE RX error: %d\n", st);
-    }
 
-    // safety: ensure RX is armed
-    lora->startReceive();
+      lora->standby();
+      delay(5);
+      lora->startReceive();
+    }
   }
 
   maybeSendTestPacket();
   delay(20);
 }
+
+
 
 // handy:
 // pio run -t upload --upload-port /dev/cu.usbserial-3
