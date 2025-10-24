@@ -1,0 +1,277 @@
+#include <Arduino.h>
+#include <SPI.h>
+#include <RadioLib.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>            // <-- add this
+
+// ---- Wi-Fi ----
+static void connectWiFi() {
+  const char* SSID = "Hapenny";
+  const char* PASS = "hapennyhouse";
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(SSID, PASS);
+  Serial.printf("WiFi: connecting to %s", SSID);
+  unsigned long t0 = millis();
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(250);
+    Serial.print(".");
+    if (millis() - t0 > 15000) {
+      Serial.println("\nWiFi: timeout, retrying");
+      t0 = millis();
+      WiFi.disconnect(true, true);
+      WiFi.begin(SSID, PASS);
+    }
+  }
+  Serial.printf("\nWiFi OK  ip=%s\n", WiFi.localIP().toString().c_str());
+}
+
+// Optional wrapper so loop() can call wifiUp()
+static void wifiUp() { connectWiFi(); }
+
+// ========= CONFIG =========
+#define POST_BASE  "https://script.google.com/macros/s/AKfycbxkcVc6BP2oJtQcAB8cAvWWrIU9eDIGanyI5yWVj7GwHgISrCKnozDGZMXJobOxHGFu/exec"
+#define API_KEY   "jI6nrJ2KTsgK0SDu"
+
+// --- Heltec WiFi LoRa 32 V3 (SX1262) pins ---
+static const int PIN_NSS  = 8;   // CS
+static const int PIN_DIO1 = 14;
+static const int PIN_RST  = 12;  // NRST
+static const int PIN_BUSY = 13;
+static const int PIN_SCK  = 9;
+static const int PIN_MISO = 11;
+static const int PIN_MOSI = 10;
+
+Module* modPtr = nullptr;
+SX1262* lora   = nullptr;
+
+static bool forwardToScript(const String& payload);
+
+// ======== HELPERS =========
+static String getFormVal(const String& body, const String& key) {
+  int pos = body.indexOf(key + "=");
+  if (pos < 0) return "";
+  int start = pos + key.length() + 1;
+  int end = body.indexOf('&', start);
+  if (end < 0) end = body.length();
+  return body.substring(start, end);
+}
+
+static bool forwardToScript(const String& payload) {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi not connected; skip POST");
+    return false;
+  }
+
+  // Build URL
+  String url  = String(POST_BASE) + "?api_key=" + API_KEY;
+
+  // Build form body (from Pearl JSON or pass-through form)
+  String body;
+  if (payload.indexOf('=') != -1 && payload.indexOf('{') == -1) {
+    // Pearl already sent form (wind_avg=&wind_max=&wind_dir=)
+    body = payload;
+  } else {
+    // Minimal JSON → form conversion
+    auto num = [&](const char* key)->String {
+      int k = payload.indexOf(key); if (k < 0) return "";
+      int c = payload.indexOf(':', k); if (c < 0) return "";
+      int i = c + 1;
+      while (i < (int)payload.length() && isspace((unsigned char)payload[i])) i++;
+      int j = i;
+      while (j < (int)payload.length() &&
+             (isdigit((unsigned char)payload[j]) || payload[j]=='.' || payload[j]=='-')) j++;
+      return payload.substring(i, j);
+    };
+    String a = num("\"ws_avg\""), g = num("\"ws_gust\""), d = num("\"wd_avg\"");
+    if (!a.length() || !g.length() || !d.length()) {
+      Serial.println("Parse fail (neither form nor expected JSON)");
+      return false;
+    }
+    body = "wind_avg=" + a + "&wind_max=" + g + "&wind_dir=" + d;
+  }
+
+  // right before the HTTP call
+  Serial.printf("FORM raw -> %s\n", body.c_str());
+
+
+  // Short debug (don’t dump Google’s HTML)
+  Serial.printf("POST body -> avg=%s max=%s dir=%s\n",
+      getFormVal(body, "wind_avg").c_str(),
+      getFormVal(body, "wind_max").c_str(),
+      getFormVal(body, "wind_dir").c_str());
+
+  WiFiClientSecure client;
+  client.setInsecure();
+
+  HTTPClient http;
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  http.setReuse(false);                    // close socket each time (more reliable with Apps Script)
+  http.setTimeout(8000);                   // 8s network timeout
+
+  if (!http.begin(client, url)) {
+    Serial.println("HTTP begin failed");
+    return false;
+  }
+
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+
+  // Send with explicit content-length to avoid chunking edge-cases
+  int code = http.POST((uint8_t*)body.c_str(), body.length());
+
+  if (code == 200 || code == 201) {
+    Serial.println("HTTP 200");
+  } else {
+    Serial.printf("HTTP %d (no row)\n", code);  // don’t print the giant HTML
+  }
+
+  http.end();
+  return code == 200 || code == 201;
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(300);
+
+  // Wi-Fi up
+  connectWiFi();                 // uses your SSID/PASS above
+
+  // LoRa radio init
+  SPI.begin(PIN_SCK, PIN_MISO, PIN_MOSI, PIN_NSS);
+  modPtr = new Module(PIN_NSS, PIN_DIO1, PIN_RST, PIN_BUSY);
+  lora   = new SX1262(modPtr);
+
+  int st = lora->begin(915.0);
+  Serial.print("BASE begin()-> "); Serial.println(st);
+  if (st != RADIOLIB_ERR_NONE) {
+    Serial.println("LoRa init failed");
+    while (true) delay(1000);
+  }
+
+  // Match Pearl’s settings
+  lora->setDio2AsRfSwitch(true);
+  lora->setSyncWord(0x34);
+  lora->setBandwidth(125.0);
+  lora->setSpreadingFactor(9);
+  lora->setCodingRate(5);
+  lora->setRxBoostedGainMode(true);
+
+  // Start RX
+  lora->startReceive();
+  Serial.println("BASE: ready (listening)");
+}
+
+// ----- small retry queue (ring buffer) -----
+struct PendingItem {
+  String body;     // form body: "wind_avg=...&wind_max=...&wind_dir=..."
+  uint32_t ts;     // Pearl timestamp for de-dupe (0 if unknown)
+};
+
+static PendingItem gQueue[5];
+static int gQHead = 0, gQTail = 0;         // ring indices
+static uint32_t g_lastTs = 0;              // <-- single, last posted Pearl ts
+
+// push (drop oldest if full)
+static void queuePush(const String& body, uint32_t ts) {
+  int nxt = (gQTail + 1) % 5;
+  if (nxt == gQHead) {                     // full -> drop oldest
+    gQHead = (gQHead + 1) % 5;
+    Serial.println("Queue full, dropping oldest");
+  }
+  gQueue[gQTail] = { body, ts };
+  gQTail = nxt;
+}
+
+// pop one item; return true if something was popped
+static bool queuePop(PendingItem& out) {
+  if (gQHead == gQTail) return false;      // empty
+  out = gQueue[gQHead];
+  gQHead = (gQHead + 1) % 5;
+  return true;
+}
+
+// ========= SETUP / LOOP =========
+void loop() {
+  // 1) Try to flush one queued post each pass
+  if (WiFi.status() == WL_CONNECTED) {
+    PendingItem pend;
+    if (queuePop(pend)) {
+      if (!forwardToScript(pend.body)) {
+        // still failed — put it back to try later
+        queuePush(pend.body, pend.ts);
+      }
+      delay(40);   // small pacing
+    }
+  }
+
+  // 2) Handle new LoRa packet
+  if (lora->getPacketLength() != 0) {
+    String payload;
+    int st = lora->readData(payload);
+
+    if (st == RADIOLIB_ERR_NONE) {
+      Serial.printf("BASE RX (rssi=%d, snr=%.1f): %s\n",
+                    lora->getRSSI(), lora->getSNR(), payload.c_str());
+
+      // Extract Pearl ts if JSON present (used for de-dupe)
+      StaticJsonDocument<256> d;
+      DeserializationError err = deserializeJson(d, payload);
+      uint32_t ts = err ? 0 : (uint32_t)(d["ts"] | 0);
+
+      // Build the form body we POST (works for either Pearl form or JSON)
+      String body;
+      if (payload.indexOf('=') != -1 && payload.indexOf('{') == -1) {
+        body = payload;  // Pearl already sent "wind_avg=&wind_max=&wind_dir="
+      } else {
+        auto num = [&](const char* key)->String {
+          int k = payload.indexOf(key); if (k < 0) return "";
+          int c = payload.indexOf(':', k); if (c < 0) return "";
+          int i = c + 1;
+          while (i < (int)payload.length() && isspace((unsigned char)payload[i])) i++;
+          int j = i;
+          while (j < (int)payload.length() &&
+                (isdigit((unsigned char)payload[j]) || payload[j]=='.' || payload[j]=='-')) j++;
+          return payload.substring(i, j);
+        };
+        String a = num("\"ws_avg\""), g = num("\"ws_gust\""), ddir = num("\"wd_avg\"");
+        if (!a.length() || !g.length() || !ddir.length()) {
+          Serial.println("Parse fail (neither form nor expected JSON)");
+          lora->startReceive();
+          delay(20);
+          return;
+        }
+        body = "wind_avg=" + a + "&wind_max=" + g + "&wind_dir=" + ddir;
+      }
+
+      // de-dupe by ts if available; if no ts, always post
+      if (ts != 0 && ts == g_lastTs) {
+        Serial.println("BASE: dup ts, ignore");
+      } else {
+        if (WiFi.status() != WL_CONNECTED) connectWiFi();
+
+        bool ok = forwardToScript(body);
+        if (!ok) {
+          delay(200);                     // quick second try
+          ok = forwardToScript(body);
+        }
+        if (!ok) {
+          queuePush(body, ts);            // queue for later if still failing
+        } else {
+          if (ts != 0) g_lastTs = ts;     // update last posted ts
+        }
+      }
+    } else {
+      Serial.printf("BASE RX error: %d\n", st);
+    }
+
+    lora->startReceive();   // ALWAYS re-arm the radio
+  }
+
+  delay(20);
+}
+
+
+
+

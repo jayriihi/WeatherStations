@@ -42,3 +42,4 @@ secrets/
 **/.pio_build/
 **/.build/
 
+base-station/src/main copy.cpp.bakup
