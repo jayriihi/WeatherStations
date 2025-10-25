@@ -1,4 +1,3 @@
-// base-station/src/base-station.cpp
 #include <Arduino.h>
 #include <SPI.h>
 #include <RadioLib.h>
@@ -57,9 +56,9 @@ static uint32_t g_lastPostMs = 0;
 static uint16_t g_dupCount   = 0;
 static uint32_t g_dupLastLog = 0;
 
-static const uint32_t MIN_POST_MS = 59000UL;  // accept at most 1 post/min
+static const uint32_t MIN_POST_MS = 20000UL;  // accept at most 1 post/min
 
-// ---- NEW: in-flight guard (prevents re-entrant posts for same cnt) ----
+// in-flight guard (prevents re-entrant posts for same cnt)
 static int32_t  g_inflightCnt = -1;
 static uint32_t g_inflightMs  = 0;
 static const uint32_t INFLIGHT_GUARD_MS = 5000UL;  // drop repeats for 5s
@@ -85,6 +84,27 @@ static String getFormVal(const String& body, const String& key) {
   int j = body.indexOf('&', i);
   if (j < 0) j = body.length();
   return body.substring(i, j);
+}
+
+// ---------- HARD RX RESET HELPER ----------
+// Re-arm the radio as if we just rebooted, so we don't get stuck
+static void resetRadioForRx() {
+  // idle first
+  lora->standby();
+  delay(5);
+
+  // full LoRa config (must match Pearl settings)
+  lora->begin(915.0);
+  lora->setDio2AsRfSwitch(true);
+  lora->setSyncWord(0x34);
+  lora->setBandwidth(125.0);
+  lora->setSpreadingFactor(9);
+  lora->setCodingRate(5);
+  lora->setRxBoostedGainMode(true);
+  lora->setCRC(true);
+
+  // listen again
+  lora->startReceive();
 }
 
 // ---------- HTTP POST (form-encoded, matches your curl/script) ----------
@@ -205,6 +225,7 @@ void setup() {
   Serial.println("BASE: ready (listening)");
 }
 
+// ================== LOOP ==================
 void loop() {
   if (lora->getPacketLength() != 0) {
     String payload;
@@ -215,9 +236,7 @@ void loop() {
       payload.trim();
       if (payload.length() == 0) {
         Serial.println("BASE: empty payload, skip");
-        lora->standby();
-        delay(5);
-        lora->startReceive();
+        resetRadioForRx();
         delay(20);
         return;
       }
@@ -225,9 +244,7 @@ void loop() {
       // reject obvious tail fragments that don't start a JSON object
       if (payload[0] != '{') {
         Serial.println("Packet does not start with '{' - skipping");
-        lora->standby();
-        delay(5);
-        lora->startReceive();
+        resetRadioForRx();
         delay(20);
         return;
       }
@@ -241,9 +258,7 @@ void loop() {
           g_dupLastLog = millis();
           g_dupCount = 0;
         }
-        lora->standby();
-        delay(5);
-        lora->startReceive();
+        resetRadioForRx();
         delay(20);
         return;
       }
@@ -263,9 +278,7 @@ void loop() {
       DeserializationError err = deserializeJson(d, payload);
       if (err) {
         Serial.println("Parse fail: bad JSON, skipping this packet");
-        lora->standby();
-        delay(5);
-        lora->startReceive();
+        resetRadioForRx();
         delay(20);
         return;
       }
@@ -282,9 +295,7 @@ void loop() {
       // sanity filter: all-zero is almost always corruption, drop it
       if (wind_avg == 0.0f && wind_max == 0.0f && wind_dir == 0) {
         Serial.println("Packet looked valid but values are all zero; skipping as corrupted");
-        lora->standby();
-        delay(5);
-        lora->startReceive();
+        resetRadioForRx();
         delay(20);
         return;
       }
@@ -301,12 +312,10 @@ void loop() {
       // use cnt from Pearl for dedupe/rate-limit logic
       int32_t cnt = (int32_t)cntJ;
 
-      // ---- in-flight guard (same cnt within short window) ----
+      // in-flight guard (same cnt within short window)
       if (cnt >= 0 && g_inflightCnt == cnt && (millis() - g_inflightMs) < INFLIGHT_GUARD_MS) {
         Serial.println("BASE: in-flight guard (same cnt), skip");
-        lora->standby();
-        delay(5);
-        lora->startReceive();
+        resetRadioForRx();
         delay(20);
         return;
       }
@@ -314,9 +323,7 @@ void loop() {
       // Counter de-dupe (don't post same cnt twice)
       if (cnt >= 0 && cnt == g_lastCntPosted) {
         Serial.println("BASE: duplicate by cnt, skip");
-        lora->standby();
-        delay(5);
-        lora->startReceive();
+        resetRadioForRx();
         delay(20);
         return;
       }
@@ -324,9 +331,7 @@ void loop() {
       // One accepted post per minute
       if ((millis() - g_lastPostMs) < MIN_POST_MS) {
         Serial.println("BASE: rate-limit active, skip post");
-        lora->standby();
-        delay(5);
-        lora->startReceive();
+        resetRadioForRx();
         delay(20);
         return;
       }
@@ -335,9 +340,7 @@ void loop() {
       const uint32_t HTTP_DUP_MS = 70000UL;
       if (body == g_lastBody && (millis() - g_lastPostMs) < HTTP_DUP_MS) {
         Serial.println("BASE: duplicate body within window, skip");
-        lora->standby();
-        delay(5);
-        lora->startReceive();
+        resetRadioForRx();
         delay(20);
         return;
       }
@@ -377,10 +380,9 @@ void loop() {
         Serial.printf("POST not successful (code=%d)\n", code);
       }
 
-      // ---- resume RF and manage in-flight window ----
-      lora->standby();
-      delay(5);
-      lora->startReceive();
+      // ---- HARD RESET RADIO FOR NEXT MINUTE ----
+      resetRadioForRx();
+
       if ((millis() - g_inflightMs) >= INFLIGHT_GUARD_MS) {
         g_inflightCnt = -1;
       }
@@ -388,18 +390,13 @@ void loop() {
     } else {
       // RX error case
       Serial.printf("BASE RX error: %d\n", st);
-
-      lora->standby();
-      delay(5);
-      lora->startReceive();
+      resetRadioForRx();
     }
   }
 
   maybeSendTestPacket();
   delay(20);
 }
-
-
 
 // handy:
 // pio run -t upload --upload-port /dev/cu.usbserial-3

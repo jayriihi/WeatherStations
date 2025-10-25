@@ -43,3 +43,4 @@ secrets/
 **/.build/
 
 base-station/src/main copy.cpp.bakup
+base-station/backups/base-station.before_radio_reset.cpp
