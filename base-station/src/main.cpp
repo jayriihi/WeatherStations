@@ -29,6 +29,52 @@ static void connectWiFi() {
   Serial.printf("\nWiFi OK ip=%s\n", WiFi.localIP().toString().c_str());
 }
 
+// naive extract "key":value from a JSON object string like {"key":12.3,...}
+static bool extractFloat(const String& src, const char* key, float& outVal) {
+  // look for "\"key\":"
+  String pattern = String("\"") + key + "\":";
+  int i = src.indexOf(pattern);
+  if (i < 0) return false;
+  i += pattern.length();
+
+  // read until comma or end brace
+  int j = i;
+  while (j < (int)src.length() && src[j] != ',' && src[j] != '}') {
+    j++;
+  }
+  if (j <= i) return false;
+
+  String num = src.substring(i, j);
+  outVal = num.toFloat();
+  return true;
+}
+
+static bool extractInt(const String& src, const char* key, int& outVal) {
+  float tmp;
+  if (!extractFloat(src, key, tmp)) return false;
+  outVal = (int)tmp;
+  return true;
+}
+
+static bool extractULong(const String& src, const char* key, unsigned long& outVal) {
+  // similar logic, but we want unsigned long
+  String pattern = String("\"") + key + "\":";
+  int i = src.indexOf(pattern);
+  if (i < 0) return false;
+  i += pattern.length();
+
+  int j = i;
+  while (j < (int)src.length() && src[j] != ',' && src[j] != '}') {
+    j++;
+  }
+  if (j <= i) return false;
+
+  String num = src.substring(i, j);
+  outVal = (unsigned long) strtoul(num.c_str(), nullptr, 10);
+  return true;
+}
+
+
 // ---------- Google Apps Script endpoint + API key ----------
 #define POST_BASE "https://script.google.com/macros/s/AKfycbxkcVc6BP2oJtQcAB8cAvWWrIU9eDIGanyI5yWVj7GwHgISrCKnozDGZMXJobOxHGFu/exec"
 #define API_KEY   "jI6nrJ2KTsgK0SDu"
@@ -226,6 +272,7 @@ void setup() {
 }
 
 // ================== LOOP ==================
+// ================== LOOP ==================
 void loop() {
   if (lora->getPacketLength() != 0) {
     String payload;
@@ -283,16 +330,19 @@ void loop() {
         return;
       }
 
-      // Pearl sends: {"wind_avg":..,"wind_max":..,"wind_dir":..,"cnt":..}
+      // Pearl now sends:
+      // {"wind_avg":..,"wind_max":..,"wind_dir":..,"cnt":..,"batt":..}
+
       float wind_avg = d["wind_avg"] | 0.0f;
       float wind_max = d["wind_max"] | 0.0f;
       int   wind_dir = d["wind_dir"] | 0;
       long  cntJ     = d["cnt"]      | -1;
+      float batt_v   = d["batt"]     | -1.0f;   // -1.0 when Pearl battery sense isn't wired yet
 
-      Serial.printf("PARSED: wind_avg=%.1f wind_max=%.1f wind_dir=%d cnt=%ld\n",
-                    wind_avg, wind_max, wind_dir, cntJ);
+      Serial.printf("PARSED: wind_avg=%.1f wind_max=%.1f wind_dir=%d cnt=%ld batt=%.2f\n",
+                    wind_avg, wind_max, wind_dir, cntJ, batt_v);
 
-      // sanity filter: all-zero is almost always corruption, drop it
+      // sanity filter: all-zero wind is almost always corruption, drop it
       if (wind_avg == 0.0f && wind_max == 0.0f && wind_dir == 0) {
         Serial.println("Packet looked valid but values are all zero; skipping as corrupted");
         resetRadioForRx();
@@ -300,17 +350,38 @@ void loop() {
         return;
       }
 
-      // Build body for Google Apps Script (no cnt here)
-      char buf[128];
-      snprintf(buf, sizeof(buf),
-               "wind_avg=%.1f&wind_max=%.1f&wind_dir=%d",
-               wind_avg, wind_max, wind_dir);
-      String body(buf);
-
-      Serial.printf("BODY (clean): %s\n", body.c_str());
+      // grab link quality from this RX
+      float rssi_f = lora->getRSSI();
+      float snr_f  = lora->getSNR();
 
       // use cnt from Pearl for dedupe/rate-limit logic
       int32_t cnt = (int32_t)cntJ;
+
+      // Build body for Google Apps Script.
+      // We KEEP the original wind_* names so the sheet/website don't break.
+      // We ADD:
+      //   cnt   (first time it'll be logged)
+      //   batt  (Pearl battery volts or -1.00 for now)
+      //   rssi  (Base RX dBm)
+      //   snr   (Base RX SNR dB)
+      //
+      // Note: if your Apps Script currently expects a 'ts=' field for timestamp,
+      // and postOnce() adds it internally, we're fine. If not, we'll append &ts= later.
+      char buf[256];
+      snprintf(buf, sizeof(buf),
+               "wind_avg=%.1f&wind_max=%.1f&wind_dir=%d"
+               "&cnt=%ld&batt=%.2f&rssi=%.1f&snr=%.1f",
+               wind_avg,
+               wind_max,
+               wind_dir,
+               (long)cnt,
+               batt_v,
+               rssi_f,
+               snr_f);
+
+      String body(buf);
+
+      Serial.printf("BODY (clean): %s\n", body.c_str());
 
       // in-flight guard (same cnt within short window)
       if (cnt >= 0 && g_inflightCnt == cnt && (millis() - g_inflightMs) < INFLIGHT_GUARD_MS) {
@@ -354,8 +425,8 @@ void loop() {
       g_inflightCnt = cnt;             // may be -1; fine
       g_inflightMs  = millis();
 
-      Serial.printf("BASE POSTING (rssi=%d, snr=%.1f): %s\n",
-                    lora->getRSSI(), lora->getSNR(), body.c_str());
+      Serial.printf("BASE POSTING (rssi=%.1f, snr=%.1f): %s\n",
+                    rssi_f, snr_f, body.c_str());
 
       int code = postOnce(body);
 
@@ -397,6 +468,7 @@ void loop() {
   maybeSendTestPacket();
   delay(20);
 }
+
 
 // handy:
 // pio run -t upload --upload-port /dev/cu.usbserial-3

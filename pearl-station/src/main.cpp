@@ -14,6 +14,21 @@ static const int PIN_MOSI = 10;
 Module* modPtr = nullptr;
 SX1262* lora   = nullptr;
 
+// Battery sensing not wired yet.
+// #define PIN_BATTERY_SENSE  1   // <- will become an ADC1 pin once installed
+
+static const float ADC_REF_V       = 3.3f;
+static const float ADC_MAX_COUNTS  = 4095.0f;
+static const float DIVIDER_GAIN    = 4.6f;   // 360k / 100k divider ratio
+static const int   BATT_SAMPLES    = 8;
+
+float readBatteryVolts() {
+  // Battery sense not hooked up yet.
+  // Return sentinel so we can still log a batt field.
+  return -1.0f;
+}
+
+
 // ---- random helpers for sim data ----
 static inline float frand(float a, float b) {
   return a + (b - a) * (float)esp_random() / (float)UINT32_MAX;
@@ -63,25 +78,44 @@ void loop() {
     }
     lastMinute = mNow;
 
+    // placeholder battery reading for now
+    float vbatt = readBatteryVolts();   // returns -1.0f until wired
+
     // --- simulate wind values (replace with real sensor reads) ---
-    float ws_avg  = 12.0f + frand(-3.0f, 3.5f);
-    float ws_gust = ws_avg + frand(2.0f, 8.0f);
+    float ws_avg  = 12.0f + frand(-3.0f, 3.5f);          // stand-in for 2-min avg
+    float ws_gust = ws_avg + frand(2.0f, 8.0f);          // stand-in for gust/max
     int   wd_deg  = (230 + (int)roundf(frand(-40.f, 40.f)) + 360) % 360;
 
-    // authoritative counter for dedupe
+    // message counter for dedupe / ordering
     uint32_t cnt = mNow;
 
-    // Build JSON that matches what Base expects
-    char buf[160];
+    // Build payload that matches your existing naming
+    // and appends batt so Base can forward it.
+    //
+    // Final fields sent over LoRa:
+    //   wind_avg
+    //   wind_max
+    //   wind_dir
+    //   cnt
+    //   batt   (new)
+    char buf[224];
     snprintf(buf, sizeof(buf),
-      "{\"wind_avg\":%.1f,\"wind_max\":%.1f,\"wind_dir\":%d,\"cnt\":%lu}",
-      ws_avg, ws_gust, wd_deg, (unsigned long)cnt
+      "{\"wind_avg\":%.1f,\"wind_max\":%.1f,\"wind_dir\":%d,\"cnt\":%lu,\"batt\":%.2f}",
+      ws_avg,
+      ws_gust,
+      wd_deg,
+      (unsigned long)cnt,
+      vbatt
     );
 
-    String body(buf);
+    String payload(buf);
 
-    Serial.println("PEARL TX body: " + body);
-    txOnce(body);
+    // Debug
+    Serial.println("[TX] " + payload);
+
+    // Send over LoRa once
+    int err = lora->transmit(payload);
+    Serial.printf("PEARL TX state: %d\n", err);
 
     // sleep until next minute boundary, with jitter
     uint32_t ms     = millis();
@@ -90,6 +124,7 @@ void loop() {
     uint32_t wait   = (next + jitter > ms) ? (next + jitter - ms) : 500;
     delay(wait);
 }
+
 
 // handy:
 // pio run -t upload --upload-port /dev/cu.usbserial-0001
