@@ -1,6 +1,16 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <RadioLib.h>
+#include <math.h>
+
+// ====== CONFIG ======
+// 0 = read real WindSonic (to be added in getSample())
+// 1 = generate simulated wind samples
+#define SIM_MODE   1
+
+// length of each measurement block in seconds
+// use 10 for bench testing; set to 120 (2 min) in production
+static const uint16_t BLOCK_SECONDS = 120;
 
 // --- Heltec WiFi LoRa 32 V3 (SX1262) pins ---
 static const int PIN_NSS  = 8;   // CS
@@ -28,8 +38,9 @@ float readBatteryVolts() {
   return -1.0f;
 }
 
+// ---- helpers ----
 
-// ---- random helpers for sim data ----
+// random float in [a,b]
 static inline float frand(float a, float b) {
   return a + (b - a) * (float)esp_random() / (float)UINT32_MAX;
 }
@@ -43,6 +54,89 @@ static inline void txOnce(String& body) {
   Serial.printf("PEARL TX state: %d\n", st);
 }
 
+// ========== ACCUMULATORS FOR THE ACTIVE BLOCK (2 min in production) ==========
+static uint16_t sample_count = 0;
+static float    sum_speed    = 0.0f;   // m/s
+static float    max_gust_1s  = 0.0f;   // m/s
+static float    sum_dir_x    = 0.0f;   // unitless
+static float    sum_dir_y    = 0.0f;   // unitless
+
+static void accumulateSample(float spd_ms, float dir_deg) {
+  // avg speed math
+  sum_speed += spd_ms;
+
+  // gust math (1-second instantaneous peak)
+  if (spd_ms > max_gust_1s) {
+    max_gust_1s = spd_ms;
+  }
+
+  // circular mean for direction
+  float rad = dir_deg * DEG_TO_RAD;
+  sum_dir_x += cosf(rad);
+  sum_dir_y += sinf(rad);
+
+  sample_count++;
+}
+
+// finalize the block → produce wind_avg, wind_max, wind_dir, then reset accumulators
+static void finalizeBlock(float &wind_avg_ms,
+                          float &wind_max_ms,
+                          float &wind_dir_deg)
+{
+  if (sample_count > 0) {
+    wind_avg_ms = sum_speed / sample_count;
+  } else {
+    wind_avg_ms = 0.0f;
+  }
+
+  wind_max_ms = max_gust_1s;
+
+  float avg_rad = atan2f(sum_dir_y, sum_dir_x);
+  float avg_deg = avg_rad * RAD_TO_DEG;
+  if (avg_deg < 0.0f) {
+    avg_deg += 360.0f;
+  }
+  wind_dir_deg = avg_deg;
+
+  // reset for next block
+  sample_count = 0;
+  sum_speed    = 0.0f;
+  max_gust_1s  = 0.0f;
+  sum_dir_x    = 0.0f;
+  sum_dir_y    = 0.0f;
+}
+
+// ========== SAMPLE SOURCE ==========
+// getSample() is the ONLY place that knows if we're sim or real sensor.
+// Later we drop WindSonic parsing into the #else path.
+static void getSample(float &spd_ms, float &dir_deg) {
+#if SIM_MODE
+  // --- SIMULATED DATA PATH ---
+  // baseline wind 8–12 m/s with rare gust spikes to ~17 m/s
+  spd_ms = frand(8.0f, 12.0f);
+  if (frand(0.0f, 1.0f) > 0.97f) {   // ~3% gust pop
+    spd_ms = frand(13.0f, 17.0f);
+  }
+
+  // direction hovering ~070° ± 8°
+  dir_deg = 70.0f + frand(-8.0f, 8.0f);
+  if (dir_deg < 0.0f)    dir_deg += 360.0f;
+  if (dir_deg >= 360.0f) dir_deg -= 360.0f;
+
+#else
+  // --- REAL SENSOR PATH (WindSonic) ---
+  // TODO:
+  // 1. Read one line from the WindSonic serial (NMEA-style sentence)
+  // 2. Parse speed (m/s) and direction (deg)
+  // 3. Assign to spd_ms and dir_deg
+  //
+  // For now, just dummy fallback so code compiles:
+  spd_ms  = 0.0f;
+  dir_deg = 0.0f;
+#endif
+}
+
+// ========== SETUP ==========
 void setup() {
   Serial.begin(115200);
   delay(300);
@@ -65,66 +159,101 @@ void setup() {
   lora->setCodingRate(5);
   lora->setOutputPower(-10);   // keep low if boards are close
 
-  Serial.println("PEARL: LoRa OK, TX mode (2 repeats/min with jitter)");
+  Serial.println("PEARL: LoRa OK");
+  Serial.printf("SIM_MODE=%d BLOCK_SECONDS=%u\n", (int)SIM_MODE, (unsigned)BLOCK_SECONDS);
 }
 
+// timing state
+static unsigned long last_sample_ms   = 0;
+static uint16_t      seconds_in_block = 0;
+
+// ========== LOOP ==========
+// We do 1 Hz sampling into a block. When the block ends, we:
+// - compute avg/dir/gust
+// - build JSON
+// - LoRa transmit once
+// - reset for next block
 void loop() {
-    static uint32_t lastMinute = 0;
+  unsigned long now = millis();
 
-    uint32_t mNow = bootMinutes();
-    if (mNow == lastMinute) {
-        delay(20);
-        return;
-    }
-    lastMinute = mNow;
+  // 1 Hz sampler
+  if (now - last_sample_ms >= 1000) {
+    last_sample_ms = now;
+    seconds_in_block++;
 
-    // placeholder battery reading for now
-    float vbatt = readBatteryVolts();   // returns -1.0f until wired
+    float spd_ms, dir_deg;
+    getSample(spd_ms, dir_deg);
+    accumulateSample(spd_ms, dir_deg);
 
-    // --- simulate wind values (replace with real sensor reads) ---
-    float ws_avg  = 12.0f + frand(-3.0f, 3.5f);          // stand-in for 2-min avg
-    float ws_gust = ws_avg + frand(2.0f, 8.0f);          // stand-in for gust/max
-    int   wd_deg  = (230 + (int)roundf(frand(-40.f, 40.f)) + 360) % 360;
+    Serial.printf("sample %3u: spd=%.2f m/s dir=%.1f deg\n",
+                  seconds_in_block, spd_ms, dir_deg);
+  }
+
+  // end of block?
+  if (seconds_in_block >= BLOCK_SECONDS) {
+    seconds_in_block = 0;
+
+    // finalize the rolling 2-min-style block
+    float wind_avg_ms, wind_max_ms, wind_dir_deg;
+    finalizeBlock(wind_avg_ms, wind_max_ms, wind_dir_deg);
+
+    // convert avg + gust to knots for debug sanity
+    float wind_avg_kt = wind_avg_ms * 1.94384f;
+    float wind_max_kt = wind_max_ms * 1.94384f;
+
+    // placeholder battery reading
+    float vbatt = readBatteryVolts();   // -1.00 until wired
 
     // message counter for dedupe / ordering
-    uint32_t cnt = mNow;
+    uint32_t cnt = bootMinutes();       // minutes since boot
 
-    // Build payload that matches your existing naming
-    // and appends batt so Base can forward it.
-    //
-    // Final fields sent over LoRa:
-    //   wind_avg
-    //   wind_max
-    //   wind_dir
-    //   cnt
-    //   batt   (new)
+    // Build payload consistent with Base expectations:
+    //   wind_avg  (m/s)
+    //   wind_max  (m/s gust)
+    //   wind_dir  (deg 0-360)
+    //   cnt       (monotonic counter)
+    //   batt      (V or -1.00 sentinel)
     char buf[224];
     snprintf(buf, sizeof(buf),
-      "{\"wind_avg\":%.1f,\"wind_max\":%.1f,\"wind_dir\":%d,\"cnt\":%lu,\"batt\":%.2f}",
-      ws_avg,
-      ws_gust,
-      wd_deg,
+      "{\"wind_avg\":%.1f,\"wind_max\":%.1f,\"wind_dir\":%.0f,\"cnt\":%lu,\"batt\":%.2f}",
+      wind_avg_ms,
+      wind_max_ms,
+      wind_dir_deg,
       (unsigned long)cnt,
       vbatt
     );
 
     String payload(buf);
 
-    // Debug
+    // Debug local printout
+    Serial.println("----- BLOCK RESULT -----");
+    Serial.printf("avg   = %.2f m/s (%.1f kt)\n", wind_avg_ms, wind_avg_kt);
+    Serial.printf("gust  = %.2f m/s (%.1f kt)\n", wind_max_ms, wind_max_kt);
+    Serial.printf("dir   = %.1f deg\n",          wind_dir_deg);
+    Serial.printf("cnt   = %lu\n",               (unsigned long)cnt);
+    Serial.printf("batt  = %.2f V\n",            vbatt);
     Serial.println("[TX] " + payload);
+    Serial.println("------------------------\n");
 
-    // Send over LoRa once
-    int err = lora->transmit(payload);
-    Serial.printf("PEARL TX state: %d\n", err);
+    // LoRa TX
+    txOnce(payload);
 
-    // sleep until next minute boundary, with jitter
+    // jittered pause before starting next block sampling loop
+    // (keeps us from slamming exactly on the minute every time)
     uint32_t ms     = millis();
-    uint32_t next   = ((ms / 60000UL) + 1) * 60000UL; // start of next minute
-    uint32_t jitter = 200 + (esp_random() % 400);     // 200..599 ms
-    uint32_t wait   = (next + jitter > ms) ? (next + jitter - ms) : 500;
-    delay(wait);
-}
+    uint32_t jitter = 200 + (esp_random() % 400);  // 200..599 ms
+    delay(jitter);
 
+    // NOTE:
+    // We immediately resume sampling next loop(), no deep sleep yet.
+    // Later for power savings on the island we can:
+    // - sleep between samples
+    // - or only wake for BLOCK_SECONDS every 5 minutes
+  }
+
+  // tiny idle delay so we aren't burning 100% CPU in the spin
+  delay(5);
+}
 
 // handy:
 // pio run -t upload --upload-port /dev/cu.usbserial-0001
