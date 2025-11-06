@@ -108,47 +108,55 @@ static void resetRadioForRx() {
   lora->startReceive();
 }
 
-// HTTP POST
-static int postOnce(const String& body) {
-  if (WiFi.status() != WL_CONNECTED) return -1;
-  WiFiClientSecure client;
-  client.setInsecure();
-  HTTPClient http;
+  // HTTP POST
+  static int postOnce(const String& body) {
+    if (WiFi.status() != WL_CONNECTED) return -1;
 
-  http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
-  http.useHTTP10(true);
-  http.setReuse(false);
-  http.setTimeout(15000);
+    WiFiClientSecure client;
+    client.setInsecure();
 
-  String url = String(POST_BASE) + "?api_key=" + API_KEY;
-  if (!http.begin(client, url)) return -1;
+    HTTPClient http;
+    http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+    http.useHTTP10(true);
+    http.setReuse(false);
+    http.setTimeout(15000);
 
-  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-  http.addHeader("Accept", "*/*");
-  http.addHeader("User-Agent", "curl/8.0.1");
-  http.addHeader("Accept-Encoding", "identity");
-  http.addHeader("Connection", "close");
+    String url = String(POST_BASE) + "?api_key=" + API_KEY;
+    if (!http.begin(client, url)) return -1;
 
-  Serial.printf("POST %s\nBODY: %s\n", url.c_str(), body.c_str());
+    http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+    http.addHeader("Accept", "*/*");
+    http.addHeader("User-Agent", "curl/8.0.1");
+    http.addHeader("Accept-Encoding", "identity");
+    http.addHeader("Connection", "close");
 
-  int code = http.POST(body);
-  String resp = http.getString();
-  http.end();
+    Serial.printf("POST %s\nBODY: %s\n", url.c_str(), body.c_str());
 
-  Serial.printf("HTTP %d\n", code);
-  if (code >= 500) Serial.println(resp);
-  return code;
-}
+    int code = http.POST(body);
+    String resp = http.getString();
+    http.end();
 
-// OPTIONAL: TEST POSTER
-static const bool ENABLE_TEST_POSTS = false;
-static uint32_t    g_lastTestMinute = 0;
-static uint32_t    g_testCnt        = 0;
+    // Only log real problems: network/<0>, timeout 408, 5xx, and non-400 client errors
+    if (code < 0 || code == 408 || (code >= 500 && code < 600) || (code >= 400 && code < 500 && code != 400)) {
+      Serial.printf("HTTP %d\n", code);
+      if (code >= 500) {
+        Serial.println(resp);
+      }
+    }
 
-static void maybeSendTestPacket() {
-  if (!ENABLE_TEST_POSTS) return;
-  time_t now = time(nullptr);
-  if (now < 1600000000) return;
+    return code;
+  }
+
+
+  // OPTIONAL: TEST POSTER
+  static const bool ENABLE_TEST_POSTS = false;
+  static uint32_t    g_lastTestMinute = 0;
+  static uint32_t    g_testCnt        = 0;
+
+  static void maybeSendTestPacket() {
+    if (!ENABLE_TEST_POSTS) return;
+    time_t now = time(nullptr);
+    if (now < 1600000000) return;
 
   uint32_t mt = minuteEpoch(now);
   if (mt == g_lastTestMinute) return;
@@ -365,17 +373,22 @@ void loop() {
       g_inflightMs  = millis();
 
       Serial.printf("BASE POSTING (rssi=%.1f, snr=%.1f): %s\n", rssi_f, snr_f, body.c_str());
+
       int code = postOnce(body);
 
+      // retry only on transient server/network errors
       bool transient = (code < 0) || code == 408 || (code >= 500 && code < 600);
       if (transient) {
         Serial.printf("POST transient (code=%d), retrying once...\n", code);
         delay(1200);
         code = postOnce(body);
-      } else if (code >= 400 && code < 500) {
+
+      // silence benign 400; still log other 4xx
+      } else if (code >= 400 && code < 500 && code != 400) {
         Serial.printf("Client error (%d), skipping retry\n", code);
       }
 
+      // treat 200/201/**400** as success
       if (code == 200 || code == 201 || code == 400) {
         g_lastBody   = body;
         g_lastPostMs = millis();
