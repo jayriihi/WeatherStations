@@ -3,6 +3,18 @@
 #include <RadioLib.h>
 #include <math.h>
 
+// === CRC16 APP-LAYER ===
+static uint16_t crc16_ccitt(const uint8_t* data, size_t len, uint16_t crc = 0xFFFF) {
+  for (size_t i = 0; i < len; ++i) {
+    crc ^= (uint16_t)data[i] << 8;
+    for (int b = 0; b < 8; ++b) {
+      crc = (crc & 0x8000) ? (uint16_t)((crc << 1) ^ 0x1021) : (uint16_t)(crc << 1);
+    }
+  }
+  return crc;
+}
+
+
 // ====== CONFIG ======
 // 0 = read real WindSonic (to be added in getSample())
 // 1 = generate simulated wind samples
@@ -225,6 +237,12 @@ void loop() {
     );
 
     String payload(buf);
+
+    // === CRC16 APP-LAYER === compute over JSON bytes, append "*%04X"
+    uint16_t crc = crc16_ccitt((const uint8_t*)payload.c_str(), payload.length());
+    char trailer[6];                                   // "*" + 4 hex + '\0'
+    snprintf(trailer, sizeof(trailer), "*%04X", (unsigned)crc);
+    payload += trailer;                                // "{...}*9A5B"
 
     // Debug local printout
     Serial.println("----- BLOCK RESULT -----");
