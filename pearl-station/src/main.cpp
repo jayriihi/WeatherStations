@@ -158,6 +158,7 @@ void setup() {
   lora->setSpreadingFactor(9);
   lora->setCodingRate(5);
   lora->setOutputPower(-10);   // keep low if boards are close
+  lora->setCRC(true);
 
   Serial.println("PEARL: LoRa OK");
   Serial.printf("SIM_MODE=%d BLOCK_SECONDS=%u\n", (int)SIM_MODE, (unsigned)BLOCK_SECONDS);
