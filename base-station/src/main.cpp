@@ -78,6 +78,13 @@ static int32_t  g_inflightCnt = -1;
 static uint32_t g_inflightMs  = 0;
 static const uint32_t INFLIGHT_GUARD_MS = 5000UL;
 
+// Drop/miss tracking (learn cadence in cnt-minutes)
+static int32_t  g_lastCntAccepted  = -1;
+static int32_t  g_nominalCntStep   = -1;   // learned step in 'cnt' units (minutes)
+static uint32_t g_drop_total       = 0;
+static uint32_t g_delivered_total  = 0;
+
+
 // TIME
 static void initTimeUTC() {
   configTime(0, 0, "pool.ntp.org", "time.nist.gov");
@@ -333,19 +340,58 @@ void loop() {
       float snr_f  = lora->getSNR();
       int32_t cnt  = (int32_t)cntJ;
 
-      // Build body (with health)
-      uint32_t uptime_s = (millis() - g_start_ms) / 1000UL;
-      char buf[360];
-      snprintf(buf, sizeof(buf),
-               "wind_avg=%.1f&wind_max=%.1f&wind_dir=%d"
-               "&cnt=%ld&batt=%.2f&rssi=%.1f&snr=%.1f"
-               "&crc_ok=%lu&crc_fail=%lu&rf_dup=%lu&uptime_s=%lu&boot_id=%lu&fw=base_1",
-               wind_avg, wind_max, wind_dir, (long)cnt, batt_v, rssi_f, snr_f,
-               (unsigned long)g_crc_ok, (unsigned long)g_crc_fail, (unsigned long)g_rf_dup,
-               (unsigned long)uptime_s, (unsigned long)g_boot_id);
+            // ----- DROPPED PACKET ESTIMATE (based on Pearl cnt minutes) -----
+      int32_t drop_gap = 0;
 
-      String body(buf);
+      if (cnt >= 0) {
+        if (g_lastCntAccepted >= 0) {
+          int32_t delta = cnt - g_lastCntAccepted;
+
+          if (delta > 0) {
+            // Learn cadence on first good step, else use the learned cadence
+            if (g_nominalCntStep <= 0) {
+              g_nominalCntStep = delta;   // e.g., 2 for 2-min blocks, 5 for 5-min blocks
+            } else {
+              // Estimate missed packets between last and this one
+              // If delta isn't a clean multiple (rare), integer division still gives a safe lower bound.
+              drop_gap = (delta / g_nominalCntStep) - 1;
+              if (drop_gap < 0) drop_gap = 0;
+              g_drop_total += (uint32_t)drop_gap;
+            }
+          } else {
+            // cnt stayed same or went backwards -> Pearl likely rebooted; reset cadence learning
+            g_nominalCntStep = -1;
+          }
+        }
+        g_lastCntAccepted = cnt;
+      }
+
+      // We'll increment delivered_total only when we actually post this row
+
+
+      // Build body (with health + drop stats)
+      uint32_t uptime_s = (millis() - g_start_ms) / 1000UL;
+      float drop_rate = 0.0f;
+      uint32_t delivered_next = g_delivered_total + 1; // counting this one
+      if ((g_drop_total + delivered_next) > 0) {
+        drop_rate = (float)g_drop_total / (float)(g_drop_total + delivered_next);
+      }
+
+      char buf[420];
+      snprintf(buf, sizeof(buf),
+              "wind_avg=%.1f&wind_max=%.1f&wind_dir=%d"
+              "&cnt=%ld&batt=%.2f&rssi=%.1f&snr=%.1f"
+              "&crc_ok=%lu&crc_fail=%lu&rf_dup=%lu&uptime_s=%lu&boot_id=%lu&fw=base_1"
+              "&drop_gap=%ld&drop_total=%lu&drop_rate=%.4f",
+              wind_avg, wind_max, wind_dir,
+              (long)cnt, batt_v, rssi_f, snr_f,
+              (unsigned long)g_crc_ok, (unsigned long)g_crc_fail, (unsigned long)g_rf_dup,
+              (unsigned long)uptime_s, (unsigned long)g_boot_id,
+              (long)drop_gap, (unsigned long)g_drop_total, drop_rate);
+
+      String body(buf);   // <-- MISSING LINE (add this)
       Serial.printf("BODY (clean): %s\n", body.c_str());
+
 
       // in-flight / dedupe / rate limit
       if (cnt >= 0 && g_inflightCnt == cnt && (millis() - g_inflightMs) < INFLIGHT_GUARD_MS) {
@@ -388,11 +434,11 @@ void loop() {
         Serial.printf("Client error (%d), skipping retry\n", code);
       }
 
-      // treat 200/201/**400** as success
       if (code == 200 || code == 201 || code == 400) {
         g_lastBody   = body;
         g_lastPostMs = millis();
         if (cnt >= 0) g_lastCntPosted = cnt;
+        g_delivered_total++;     // <-- count delivered rows for rate calc
       } else {
         Serial.printf("POST not successful (code=%d)\n", code);
       }
