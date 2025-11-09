@@ -66,6 +66,89 @@ static inline void txOnce(String& body) {
   Serial.printf("PEARL TX state: %d\n", st);
 }
 
+// === ACK SUPPORT ===
+
+static bool parseAckLine(const String& line, uint32_t& out_cnt, String& out_status) {
+  int star = line.lastIndexOf('*');
+  if (star < 0 || (line.length() - star - 1) < 4) return false;
+
+  // verify CRC over the part before '*'
+  String head = line.substring(0, star);
+  char hex4[5];
+  hex4[0] = line[star + 1];
+  hex4[1] = line[star + 2];
+  hex4[2] = line[star + 3];
+  hex4[3] = line[star + 4];
+  hex4[4] = '\0';
+
+  unsigned rx_u = 0;
+  sscanf(hex4, "%04X", &rx_u);
+  uint16_t calc = crc16_ccitt((const uint8_t*)head.c_str(), head.length());
+  if ((uint16_t)rx_u != calc) return false;
+
+  // expected form: "ACK <cnt> <STATUS>"
+  if (!head.startsWith("ACK ")) return false;
+  int sp1 = head.indexOf(' ', 4);
+  if (sp1 < 0) return false;
+
+  String cntStr = head.substring(4, sp1);
+  String stStr  = head.substring(sp1 + 1);
+  out_cnt    = (uint32_t)cntStr.toInt();
+  out_status = stStr;
+  return true;
+}
+
+static bool waitForAck(uint32_t expect_cnt, uint32_t timeout_ms, String* out_status = nullptr) {
+  unsigned long t0 = millis();
+
+  // brief purge to flush any stale/loopback bytes
+  lora->startReceive();
+  unsigned long purge_end = t0 + 120;     // ~120 ms
+  while (millis() < purge_end) {
+    if (lora->getPacketLength() != 0) {
+      String junk; (void)lora->readData(junk);
+      // don't log junk here; it's expected on bench
+    }
+    delay(5);
+  }
+
+  // main wait
+  lora->startReceive();
+  unsigned nonAckPrinted = 0;
+
+  while ((millis() - t0) < timeout_ms) {
+    if (lora->getPacketLength() != 0) {
+      String line;
+      int st = lora->readData(line);
+      if (st == RADIOLIB_ERR_NONE) {
+        line.trim();
+
+        // optional debug — show first few non-ACK frames only
+        if (line.startsWith("ACK ")) {
+          Serial.printf("PEARL: ACK RX raw: %s\n", line.c_str());
+        } else if (nonAckPrinted < 2) {
+          Serial.printf("PEARL: non-ACK sample: %s\n", line.c_str());
+          nonAckPrinted++;
+        }
+
+        uint32_t cnt_rx = 0;
+        String status;
+        if (parseAckLine(line, cnt_rx, status)) {
+          if (cnt_rx == expect_cnt) {
+            if (out_status) *out_status = status;
+            Serial.printf("PEARL: got ACK cnt=%lu status=%s\n",
+                          (unsigned long)cnt_rx, status.c_str());
+            return true;
+          }
+        }
+      }
+    }
+    delay(10);
+  }
+  return false;
+}
+
+
 // ========== ACCUMULATORS FOR THE ACTIVE BLOCK (2 min in production) ==========
 static uint16_t sample_count = 0;
 static float    sum_speed    = 0.0f;   // m/s
@@ -184,7 +267,7 @@ static uint16_t      seconds_in_block = 0;
 // We do 1 Hz sampling into a block. When the block ends, we:
 // - compute avg/dir/gust
 // - build JSON
-// - LoRa transmit once
+// - LoRa transmit once (with ACK/retry)
 // - reset for next block
 void loop() {
   unsigned long now = millis();
@@ -229,8 +312,8 @@ void loop() {
     char buf[224];
     snprintf(buf, sizeof(buf),
       "{\"wind_avg\":%.1f,\"wind_max\":%.1f,\"wind_dir\":%.0f,\"cnt\":%lu,\"batt\":%.2f}",
-      wind_avg_ms,
-      wind_max_ms,
+      wind_avg_kt,
+      wind_max_kt,
       wind_dir_deg,
       (unsigned long)cnt,
       vbatt
@@ -254,8 +337,32 @@ void loop() {
     Serial.println("[TX] " + payload);
     Serial.println("------------------------\n");
 
-    // LoRa TX
-    txOnce(payload);
+    // LoRa TX with ACK/Retry
+    const int MAX_TX_ATTEMPTS = 3;
+    int attempt   = 0;
+    bool acked    = false;
+    String ackStatus;
+
+    while (attempt < MAX_TX_ATTEMPTS && !acked) {
+      attempt++;
+      Serial.printf("PEARL: TX attempt %d\n", attempt);
+      txOnce(payload);
+
+      // wait ~1.2 s for ACK
+      if (waitForAck((uint32_t)cnt, 2500, &ackStatus)) {
+        acked = true;
+        Serial.printf("PEARL: ACKed with status %s\n", ackStatus.c_str());
+        break;
+      }
+
+      // small randomized backoff before retry
+      uint32_t backoff = 200 + (esp_random() % 300);  // 200..499 ms
+      delay(backoff);
+    }
+
+    if (!acked) {
+      Serial.println("PEARL: no ACK received after retries");
+    }
 
     // jittered pause before starting next block sampling loop
     // (keeps us from slamming exactly on the minute every time)

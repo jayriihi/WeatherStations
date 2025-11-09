@@ -45,3 +45,8 @@ secrets/
 base-station/src/main copy.cpp.bakup
 base-station/backups/base-station.before_radio_reset.cpp
 pearl-station/backups/before_adding_sim_for_windsonic_data_parsing_main_20251028.cpp
+pearl-station/backups/main.preACKbakup6Nov2025.cpp
+base-station/backups/main copy.cpp
+base-station/backups/main copy.cpp.bakup
+base-station/backups/main.bakuppreACK6Nov2025.cpp
+base-station/backups/maincpp.bakup

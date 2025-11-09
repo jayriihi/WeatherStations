@@ -7,6 +7,7 @@
 #include <ArduinoJson.h>
 #include <time.h>
 #include <ctype.h>
+#include <string.h>
 
 // === CRC16 APP-LAYER ===
 static uint16_t crc16_ccitt(const uint8_t* data, size_t len, uint16_t crc = 0xFFFF) {
@@ -111,59 +112,61 @@ static void resetRadioForRx() {
   lora->setCodingRate(5);
   lora->setRxBoostedGainMode(true);
   lora->setCRC(true);
+  lora->setOutputPower(-10);  // keep downlink ACK very low power for bench
+
 
   lora->startReceive();
 }
 
-  // HTTP POST
-  static int postOnce(const String& body) {
-    if (WiFi.status() != WL_CONNECTED) return -1;
+// HTTP POST
+static int postOnce(const String& body) {
+  if (WiFi.status() != WL_CONNECTED) return -1;
 
-    WiFiClientSecure client;
-    client.setInsecure();
+  WiFiClientSecure client;
+  client.setInsecure();
 
-    HTTPClient http;
-    http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
-    http.useHTTP10(true);
-    http.setReuse(false);
-    http.setTimeout(15000);
+  HTTPClient http;
+  http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+  http.useHTTP10(true);
+  http.setReuse(false);
+  http.setTimeout(15000);
 
-    String url = String(POST_BASE) + "?api_key=" + API_KEY;
-    if (!http.begin(client, url)) return -1;
+  String url = String(POST_BASE) + "?api_key=" + API_KEY;
+  if (!http.begin(client, url)) return -1;
 
-    http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-    http.addHeader("Accept", "*/*");
-    http.addHeader("User-Agent", "curl/8.0.1");
-    http.addHeader("Accept-Encoding", "identity");
-    http.addHeader("Connection", "close");
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+  http.addHeader("Accept", "*/*");
+  http.addHeader("User-Agent", "curl/8.0.1");
+  http.addHeader("Accept-Encoding", "identity");
+  http.addHeader("Connection", "close");
 
-    Serial.printf("POST %s\nBODY: %s\n", url.c_str(), body.c_str());
+  Serial.printf("POST %s\nBODY: %s\n", url.c_str(), body.c_str());
 
-    int code = http.POST(body);
-    String resp = http.getString();
-    http.end();
+  int code = http.POST(body);
+  String resp = http.getString();
+  http.end();
 
-    // Only log real problems: network/<0>, timeout 408, 5xx, and non-400 client errors
-    if (code < 0 || code == 408 || (code >= 500 && code < 600) || (code >= 400 && code < 500 && code != 400)) {
-      Serial.printf("HTTP %d\n", code);
-      if (code >= 500) {
-        Serial.println(resp);
-      }
+  // Only log real problems: network/<0>, timeout 408, 5xx, and non-400 client errors
+  if (code < 0 || code == 408 || (code >= 500 && code < 600) || (code >= 400 && code < 500 && code != 400)) {
+    Serial.printf("HTTP %d\n", code);
+    if (code >= 500) {
+      Serial.println(resp);
     }
-
-    return code;
   }
 
+  return code;
+}
 
-  // OPTIONAL: TEST POSTER
-  static const bool ENABLE_TEST_POSTS = false;
-  static uint32_t    g_lastTestMinute = 0;
-  static uint32_t    g_testCnt        = 0;
 
-  static void maybeSendTestPacket() {
-    if (!ENABLE_TEST_POSTS) return;
-    time_t now = time(nullptr);
-    if (now < 1600000000) return;
+// OPTIONAL: TEST POSTER
+static const bool ENABLE_TEST_POSTS = false;
+static uint32_t    g_lastTestMinute = 0;
+static uint32_t    g_testCnt        = 0;
+
+static void maybeSendTestPacket() {
+  if (!ENABLE_TEST_POSTS) return;
+  time_t now = time(nullptr);
+  if (now < 1600000000) return;
 
   uint32_t mt = minuteEpoch(now);
   if (mt == g_lastTestMinute) return;
@@ -200,6 +203,20 @@ static void resetRadioForRx() {
   } else {
     Serial.printf("TEST POST not successful (code=%d)\n", code);
   }
+}
+
+// === ACK SUPPORT ===
+static void sendAck(uint32_t cnt, const char* status) {
+  char head[64];
+  snprintf(head, sizeof(head), "ACK %lu %s", (unsigned long)cnt, status);
+  uint16_t crc = crc16_ccitt((const uint8_t*)head, strnlen(head, sizeof(head)));
+  char frame[80];
+  snprintf(frame, sizeof(frame), "%s*%04X", head, (unsigned)crc);
+  String s(frame);
+  lora->standby();
+  int st = lora->transmit(s);
+  Serial.printf("BASE: ACK TX (%s) state=%d\n", frame, st);
+  resetRadioForRx();
 }
 
 // SETUP
@@ -282,6 +299,7 @@ void loop() {
       int starIdx = payload.lastIndexOf('*');
       if (starIdx < 0 || (payload.length() - starIdx - 1) < 4) {
         Serial.println("CRC trailer missing/short; dropping packet");
+        // no ACK on CRC fail
         resetRadioForRx(); delay(20); return;
       }
 
@@ -295,6 +313,7 @@ void loop() {
       for (int i = 0; i < 4; ++i) {
         if (!isxdigit((unsigned char)hex4[i])) {
           Serial.println("CRC trailer not hex; dropping packet");
+          // no ACK on CRC fail
           resetRadioForRx(); delay(20); return;
         }
       }
@@ -308,6 +327,7 @@ void loop() {
       if (calc != rx_crc) {
         g_crc_fail++;   // count failures
         Serial.printf("CRC mismatch: calc=%04X rx=%04X -> drop\n", (unsigned)calc, (unsigned)rx_crc);
+        // no ACK on CRC fail
         resetRadioForRx(); delay(20); return;
       }
 
@@ -319,6 +339,7 @@ void loop() {
       DeserializationError err = deserializeJson(d, payload);
       if (err) {
         Serial.println("Parse fail: bad JSON, skipping this packet");
+        // no ACK on malformed JSON
         resetRadioForRx(); delay(20); return;
       }
 
@@ -333,6 +354,7 @@ void loop() {
 
       if (wind_avg == 0.0f && wind_max == 0.0f && wind_dir == 0) {
         Serial.println("Packet looked valid but values are all zero; skipping as corrupted");
+        // no ACK on clearly corrupt content
         resetRadioForRx(); delay(20); return;
       }
 
@@ -340,7 +362,12 @@ void loop() {
       float snr_f  = lora->getSNR();
       int32_t cnt  = (int32_t)cntJ;
 
-            // ----- DROPPED PACKET ESTIMATE (based on Pearl cnt minutes) -----
+      // === EARLY ACK (send immediately after valid parse) ===
+      if (cnt >= 0) {
+        sendAck((uint32_t)cnt, "OK");
+      }
+
+      // ----- DROPPED PACKET ESTIMATE (based on Pearl cnt minutes) -----
       int32_t drop_gap = 0;
 
       if (cnt >= 0) {
@@ -353,7 +380,6 @@ void loop() {
               g_nominalCntStep = delta;   // e.g., 2 for 2-min blocks, 5 for 5-min blocks
             } else {
               // Estimate missed packets between last and this one
-              // If delta isn't a clean multiple (rare), integer division still gives a safe lower bound.
               drop_gap = (delta / g_nominalCntStep) - 1;
               if (drop_gap < 0) drop_gap = 0;
               g_drop_total += (uint32_t)drop_gap;
@@ -366,9 +392,6 @@ void loop() {
         g_lastCntAccepted = cnt;
       }
 
-      // We'll increment delivered_total only when we actually post this row
-
-
       // Build body (with health + drop stats)
       uint32_t uptime_s = (millis() - g_start_ms) / 1000UL;
       float drop_rate = 0.0f;
@@ -379,36 +402,39 @@ void loop() {
 
       char buf[420];
       snprintf(buf, sizeof(buf),
-              "wind_avg=%.1f&wind_max=%.1f&wind_dir=%d"
-              "&cnt=%ld&batt=%.2f&rssi=%.1f&snr=%.1f"
-              "&crc_ok=%lu&crc_fail=%lu&rf_dup=%lu&uptime_s=%lu&boot_id=%lu&fw=base_1"
-              "&drop_gap=%ld&drop_total=%lu&drop_rate=%.4f",
-              wind_avg, wind_max, wind_dir,
-              (long)cnt, batt_v, rssi_f, snr_f,
-              (unsigned long)g_crc_ok, (unsigned long)g_crc_fail, (unsigned long)g_rf_dup,
-              (unsigned long)uptime_s, (unsigned long)g_boot_id,
-              (long)drop_gap, (unsigned long)g_drop_total, drop_rate);
+               "wind_avg=%.1f&wind_max=%.1f&wind_dir=%d"
+               "&cnt=%ld&batt=%.2f&rssi=%.1f&snr=%.1f"
+               "&crc_ok=%lu&crc_fail=%lu&rf_dup=%lu&uptime_s=%lu&boot_id=%lu&fw=base_1"
+               "&drop_gap=%ld&drop_total=%lu&drop_rate=%.4f",
+               wind_avg, wind_max, wind_dir,
+               (long)cnt, batt_v, rssi_f, snr_f,
+               (unsigned long)g_crc_ok, (unsigned long)g_crc_fail, (unsigned long)g_rf_dup,
+               (unsigned long)uptime_s, (unsigned long)g_boot_id,
+               (long)drop_gap, (unsigned long)g_drop_total, drop_rate);
 
-      String body(buf);   // <-- MISSING LINE (add this)
+      String body(buf);
       Serial.printf("BODY (clean): %s\n", body.c_str());
-
 
       // in-flight / dedupe / rate limit
       if (cnt >= 0 && g_inflightCnt == cnt && (millis() - g_inflightMs) < INFLIGHT_GUARD_MS) {
         Serial.println("BASE: in-flight guard (same cnt), skip");
+        sendAck((uint32_t)cnt, "DUP");
         resetRadioForRx(); delay(20); return;
       }
       if (cnt >= 0 && cnt == g_lastCntPosted) {
         Serial.println("BASE: duplicate by cnt, skip");
+        sendAck((uint32_t)cnt, "DUP");
         resetRadioForRx(); delay(20); return;
       }
       if ((millis() - g_lastPostMs) < MIN_POST_MS) {
         Serial.println("BASE: rate-limit active, skip post");
+        sendAck((uint32_t)cnt, "RATE");
         resetRadioForRx(); delay(20); return;
       }
       const uint32_t HTTP_DUP_MS = 70000UL;
       if (body == g_lastBody && (millis() - g_lastPostMs) < HTTP_DUP_MS) {
         Serial.println("BASE: duplicate body within window, skip");
+        sendAck((uint32_t)cnt, "DUP");
         resetRadioForRx(); delay(20); return;
       }
 
@@ -439,8 +465,10 @@ void loop() {
         g_lastPostMs = millis();
         if (cnt >= 0) g_lastCntPosted = cnt;
         g_delivered_total++;     // <-- count delivered rows for rate calc
+        if (cnt >= 0) sendAck((uint32_t)cnt, "OK");
       } else {
         Serial.printf("POST not successful (code=%d)\n", code);
+        // treat as transient → no ACK so Pearl may retry
       }
 
       resetRadioForRx();
