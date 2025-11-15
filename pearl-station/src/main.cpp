@@ -249,7 +249,7 @@ void setup() {
   lora->setBandwidth(125.0);
   lora->setSpreadingFactor(9);
   lora->setCodingRate(5);
-  lora->setOutputPower(-10);   // keep low if boards are close
+  lora->setOutputPower(20);   // keep low if boards are close
   lora->setCRC(true);
 
   Serial.println("PEARL: LoRa OK");
