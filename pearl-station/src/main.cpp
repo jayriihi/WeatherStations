@@ -2,6 +2,11 @@
 #include <SPI.h>
 #include <RadioLib.h>
 #include <math.h>
+#include <string.h>
+
+static void getSample(float& spd_ms, float& dir_deg);     // you already have this
+bool readWindsonicLine(float& spd_ms, float& gust_ms, float& dir_deg);
+
 
 // === CRC16 APP-LAYER ===
 static uint16_t crc16_ccitt(const uint8_t* data, size_t len, uint16_t crc = 0xFFFF) {
@@ -16,9 +21,11 @@ static uint16_t crc16_ccitt(const uint8_t* data, size_t len, uint16_t crc = 0xFF
 
 
 // ====== CONFIG ======
-// 0 = read real WindSonic (to be added in getSample())
-// 1 = generate simulated wind samples
-#define SIM_MODE   1
+// --- WindSonic configuration ---
+#define USE_WINDSONIC     1          // 1 = live sensor, 0 = test generator
+#define WINDSONIC_BAUD    4800
+#define WIND_RX_PIN       19        // converter TXD -> this pin
+#define WIND_TX_PIN       -1         // not sending to sensor
 
 // length of each measurement block in seconds
 // use 10 for bench testing; set to 120 (2 min) in production
@@ -50,12 +57,26 @@ float readBatteryVolts() {
   return -1.0f;
 }
 
+static void getSample(float& spd_ms, float& dir_deg);
+
 // ---- helpers ----
 
 // random float in [a,b]
 static inline float frand(float a, float b) {
   return a + (b - a) * (float)esp_random() / (float)UINT32_MAX;
 }
+
+#if !USE_WINDSONIC
+// simulator sample (only compiled when USE_WINDSONIC == 0)
+static inline void simulateSample(float& spd_ms, float& dir_deg) {
+  spd_ms = frand(8.0f, 12.0f);
+  if (frand(0.0f, 1.0f) > 0.97f) spd_ms = frand(13.0f, 17.0f);
+  dir_deg = 70.0f + frand(-8.0f, 8.0f);
+  if (dir_deg < 0) dir_deg += 360.0f;
+  if (dir_deg >= 360.0f) dir_deg -= 360.0f;
+}
+#endif
+
 
 // minutes since boot; swap to epoch/60 if you add RTC/NTP later
 static inline uint32_t bootMinutes() { return millis() / 60000UL; }
@@ -157,6 +178,7 @@ static float    sum_dir_x    = 0.0f;   // unitless
 static float    sum_dir_y    = 0.0f;   // unitless
 
 static void accumulateSample(float spd_ms, float dir_deg) {
+  if (isnan(spd_ms) || isnan(dir_deg)) return;
   // avg speed math
   sum_speed += spd_ms;
 
@@ -201,36 +223,6 @@ static void finalizeBlock(float &wind_avg_ms,
   sum_dir_y    = 0.0f;
 }
 
-// ========== SAMPLE SOURCE ==========
-// getSample() is the ONLY place that knows if we're sim or real sensor.
-// Later we drop WindSonic parsing into the #else path.
-static void getSample(float &spd_ms, float &dir_deg) {
-#if SIM_MODE
-  // --- SIMULATED DATA PATH ---
-  // baseline wind 8–12 m/s with rare gust spikes to ~17 m/s
-  spd_ms = frand(8.0f, 12.0f);
-  if (frand(0.0f, 1.0f) > 0.97f) {   // ~3% gust pop
-    spd_ms = frand(13.0f, 17.0f);
-  }
-
-  // direction hovering ~070° ± 8°
-  dir_deg = 70.0f + frand(-8.0f, 8.0f);
-  if (dir_deg < 0.0f)    dir_deg += 360.0f;
-  if (dir_deg >= 360.0f) dir_deg -= 360.0f;
-
-#else
-  // --- REAL SENSOR PATH (WindSonic) ---
-  // TODO:
-  // 1. Read one line from the WindSonic serial (NMEA-style sentence)
-  // 2. Parse speed (m/s) and direction (deg)
-  // 3. Assign to spd_ms and dir_deg
-  //
-  // For now, just dummy fallback so code compiles:
-  spd_ms  = 0.0f;
-  dir_deg = 0.0f;
-#endif
-}
-
 // ========== SETUP ==========
 void setup() {
   Serial.begin(115200);
@@ -246,6 +238,11 @@ void setup() {
     while (true) delay(1000);
   }
 
+  #if USE_WINDSONIC
+    Serial1.begin(WINDSONIC_BAUD, SERIAL_8N1, WIND_RX_PIN, WIND_TX_PIN);
+    Serial.println("WindSonic UART ready");
+  #endif
+
   // MUST match Base
   lora->setDio2AsRfSwitch(true);
   lora->setSyncWord(0x34);
@@ -256,7 +253,8 @@ void setup() {
   lora->setCRC(true);
 
   Serial.println("PEARL: LoRa OK");
-  Serial.printf("SIM_MODE=%d BLOCK_SECONDS=%u\n", (int)SIM_MODE, (unsigned)BLOCK_SECONDS);
+  Serial.printf("USE_WINDSONIC=%d BLOCK_SECONDS=%u\n",
+              (int)USE_WINDSONIC, (unsigned)BLOCK_SECONDS);
 }
 
 // timing state
@@ -304,8 +302,8 @@ void loop() {
     uint32_t cnt = bootMinutes();       // minutes since boot
 
     // Build payload consistent with Base expectations:
-    //   wind_avg  (m/s)
-    //   wind_max  (m/s gust)
+    //   wind_avg  (knots)
+    //   wind_max  (knots gust)
     //   wind_dir  (deg 0-360)
     //   cnt       (monotonic counter)
     //   batt      (V or -1.00 sentinel)
@@ -366,7 +364,6 @@ void loop() {
 
     // jittered pause before starting next block sampling loop
     // (keeps us from slamming exactly on the minute every time)
-    uint32_t ms     = millis();
     uint32_t jitter = 200 + (esp_random() % 400);  // 200..599 ms
     delay(jitter);
 
@@ -379,6 +376,86 @@ void loop() {
 
   // tiny idle delay so we aren't burning 100% CPU in the spin
   delay(5);
+}
+
+// ==========================================================
+// ========== WindSonic Sample Reader Integration ============
+// ==========================================================
+
+// Replaces simulator in getSample()
+
+static void getSample(float& spd_ms, float& dir_deg) {
+#if USE_WINDSONIC
+  float gust_dummy = NAN;
+  if (readWindsonicLine(spd_ms, gust_dummy, dir_deg)) {
+    return;
+  }
+  spd_ms = NAN;
+  dir_deg = NAN;
+#else
+  // existing simulator
+  simulateSample(spd_ms, dir_deg);
+#endif
+}
+
+// ==========================================================
+// ========== WindSonic UART Line Reader + Parser ============
+// ==========================================================
+static bool readLineFrom(Stream& ser, char* buf, size_t cap, uint32_t timeout_ms = 300) {
+  uint32_t start = millis();
+  size_t n = 0;
+  while (millis() - start < timeout_ms) {
+    while (ser.available()) {
+      char c = (char)ser.read();
+      if (c == '\r') continue;
+      if (c == '\n') { buf[n] = '\0'; return n > 0; }
+      if (n + 1 < cap) buf[n++] = c;
+    }
+  }
+  return false;
+}
+
+bool readWindsonicLine(float& spd_ms, float& gust_ms, float& dir_deg) {
+  char line[96];
+  if (!readLineFrom(Serial1, line, sizeof(line))) return false;
+
+  // --- Gill "Q" format: Q,dir_deg,speed_ms[,gust_ms] ---
+  if ((line[0] == 'Q' || line[0] == 'q') && line[1] == ',') {
+    char* p = line + 2;
+    char* t1 = strtok(p, ",");
+    char* t2 = strtok(nullptr, ",");
+    char* t3 = strtok(nullptr, ",");
+    if (t1 && t2) {
+      dir_deg = atof(t1);
+      spd_ms  = atof(t2);
+      gust_ms = t3 ? atof(t3) : spd_ms;
+      return (dir_deg >= 0 && dir_deg <= 360 && spd_ms >= 0);
+    }
+  }
+
+  // --- NMEA MWV format: $--MWV,angle,R,speed,unit*CS ---
+  if (strstr(line, "MWV")) {
+    char* p = (line[0] == '$') ? line + 1 : line;
+    char* comma = strchr(p, ',');
+    if (!comma) return false;
+    p = comma + 1;
+
+    char* angle = strtok(p, ",");
+    strtok(nullptr, ",");                 // R/T
+    char* spd   = strtok(nullptr, ",");
+    char* unit  = strtok(nullptr, ",");   // N/M/K
+
+    if (angle && spd && unit) {
+      dir_deg = atof(angle);
+      float v = atof(spd);
+      spd_ms  = (*unit == 'N') ? v * 0.5144444f :
+                (*unit == 'K') ? v / 3.6f : v;    // 'M' = m/s
+      gust_ms = spd_ms;
+      return (dir_deg >= 0 && dir_deg <= 360 && spd_ms >= 0);
+    }
+  }
+
+  return false;
 }
 
 // handy:
