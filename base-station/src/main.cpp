@@ -20,26 +20,44 @@ static uint16_t crc16_ccitt(const uint8_t* data, size_t len, uint16_t crc = 0xFF
   return crc;
 }
 
+// === LEDS ===
+// Heltec V3 usually exposes an onboard LED via LED_BUILTIN.
+// If not defined by the core, fall back to GPIO 35.
+
+// === LED ===
+// Onboard white LED on GPIO 35
+static const int LED_HEARTBEAT = 35;
+
+static uint32_t g_lastHeartbeatMs = 0;
+static bool     g_hbState         = false;
+
+static uint32_t g_rxHoldUntilMs = 0;
+
+
 // ---------- Wi-Fi ----------
-static void connectWiFi() {
+static void connectWiFi(uint32_t maxWaitMs = 15000) {
   const char* SSID = "Hapenny";
   const char* PASS = "hapennyhouse";
+
+  if (WiFi.status() == WL_CONNECTED) return;
+
   WiFi.mode(WIFI_STA);
   WiFi.begin(SSID, PASS);
   Serial.printf("WiFi: connecting to %s", SSID);
+
   unsigned long t0 = millis();
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED && (millis() - t0) < maxWaitMs) {
     delay(250);
     Serial.print(".");
-    if (millis() - t0 > 15000) {
-      Serial.println("\nWiFi: timeout, retrying");
-      t0 = millis();
-      WiFi.disconnect(true, true);
-      WiFi.begin(SSID, PASS);
-    }
   }
-  Serial.printf("\nWiFi OK ip=%s\n", WiFi.localIP().toString().c_str());
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.printf("\nWiFi OK ip=%s\n", WiFi.localIP().toString().c_str());
+  } else {
+    Serial.println("\nWiFi: not connected, continuing offline");
+  }
 }
+
 
 // Health counters
 static uint32_t g_crc_ok   = 0;
@@ -223,7 +241,19 @@ static void sendAck(uint32_t cnt, const char* status) {
 void setup() {
   Serial.begin(115200);
   delay(300);
-  connectWiFi();
+
+  pinMode(LED_HEARTBEAT, OUTPUT);
+  digitalWrite(LED_HEARTBEAT, LOW);
+
+  // Optional: boot test – three quick blinks so we know pin 35 is really the LED
+  for (int i = 0; i < 3; ++i) {
+    digitalWrite(LED_HEARTBEAT, HIGH);
+    delay(150);
+    digitalWrite(LED_HEARTBEAT, LOW);
+    delay(150);
+  }
+
+  connectWiFi(15000);
   initTimeUTC();
   g_start_ms = millis();
 
@@ -250,13 +280,37 @@ void setup() {
   Serial.println("BASE: ready (listening)");
 }
 
-// LOOP
-void loop() {
-  if (lora->getPacketLength() != 0) {
-    String payload;
-    int st = lora->readData(payload);
+      // LOOP
+    void loop() {
+      uint32_t now = millis();
 
-    if (st == RADIOLIB_ERR_NONE) {
+      // If we've heard a packet recently, show solid ON so it's easy to see during range tests
+      if (now < g_rxHoldUntilMs) {
+        digitalWrite(LED_HEARTBEAT, HIGH);
+      } else {
+        // Otherwise do the gentle heartbeat wink every 2 seconds
+        static bool     hbOn    = false;
+        static uint32_t hbOffMs = 0;
+
+        if (!hbOn && (now - g_lastHeartbeatMs >= 2000)) {
+          g_lastHeartbeatMs = now;
+          hbOn    = true;
+          hbOffMs = now + 50;               // LED ON for ~50 ms
+          digitalWrite(LED_HEARTBEAT, HIGH);
+        }
+
+        if (hbOn && now >= hbOffMs) {
+          hbOn = false;
+          digitalWrite(LED_HEARTBEAT, LOW);
+        }
+      }
+
+
+      if (lora->getPacketLength() != 0) {
+        String payload;
+        int st = lora->readData(payload);
+
+      if (st == RADIOLIB_ERR_NONE) {
 
       payload.trim();
       if (payload.length() == 0) {
@@ -349,14 +403,17 @@ void loop() {
       long  cntJ     = d["cnt"]      | -1;
       float batt_v   = d["batt"]     | -1.0f;
 
-      Serial.printf("PARSED: wind_avg=%.1f wind_max=%.1f wind_dir=%d cnt=%ld batt=%.2f\n",
-                    wind_avg, wind_max, wind_dir, cntJ, batt_v);
+      Serial.printf("PARSED: wind_avg=%.1f wind_max=%.1f wind_dir=%d cnt=%ld batt=%.2f\n",wind_avg, wind_max, wind_dir, cntJ, batt_v);
 
       if (wind_avg == 0.0f && wind_max == 0.0f && wind_dir == 0) {
         Serial.println("Packet looked valid but values are all zero; skipping as corrupted");
         // no ACK on clearly corrupt content
         resetRadioForRx(); delay(20); return;
       }
+
+      // Range-test indicator: keep LED solid for a while after a valid packet
+      g_rxHoldUntilMs = millis() + 10000UL;   // LED solid ON for ~10 seconds
+      Serial.printf("RX: hold LED until %lu\n", (unsigned long)g_rxHoldUntilMs);
 
       float rssi_f = lora->getRSSI();
       float snr_f  = lora->getSNR();
@@ -438,7 +495,10 @@ void loop() {
         resetRadioForRx(); delay(20); return;
       }
 
-      if (WiFi.status() != WL_CONNECTED) connectWiFi();
+      if (WiFi.status() != WL_CONNECTED) {
+        connectWiFi(2000);   // quick attempt to reconnect, then move on
+      }
+
 
       lora->standby();
       g_inflightCnt = cnt;
@@ -483,6 +543,7 @@ void loop() {
   maybeSendTestPacket();
   delay(20);
 }
+
 
 // handy:
 // pio run -t upload --upload-port /dev/cu.usbserial-3
