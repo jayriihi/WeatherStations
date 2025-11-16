@@ -36,27 +36,52 @@ static uint32_t g_rxHoldUntilMs = 0;
 
 // ---------- Wi-Fi ----------
 static void connectWiFi(uint32_t maxWaitMs = 15000) {
-  const char* SSID = "Hapenny";
-  const char* PASS = "hapennyhouse";
+  // List of networks to try, in order of preference
+  const char* SSIDS[] = {
+    "Hapenny",
+    "Spanky's House",
+    "Jay's phone",
+  };
+  const char* PASSES[] = {
+    "hapennyhouse",
+    "131Glenmont",
+    "Riihiluoma",
+  };
+  const int WIFI_COUNT = sizeof(SSIDS) / sizeof(SSIDS[0]);
 
   if (WiFi.status() == WL_CONNECTED) return;
 
   WiFi.mode(WIFI_STA);
-  WiFi.begin(SSID, PASS);
-  Serial.printf("WiFi: connecting to %s", SSID);
 
-  unsigned long t0 = millis();
-  while (WiFi.status() != WL_CONNECTED && (millis() - t0) < maxWaitMs) {
-    delay(250);
-    Serial.print(".");
+  // Split the total wait time across all networks
+  uint32_t perNetWait = (WIFI_COUNT > 0) ? maxWaitMs / WIFI_COUNT : maxWaitMs;
+  if (perNetWait < 2000) perNetWait = 2000;  // don't bother with super tiny timeouts
+
+  for (int i = 0; i < WIFI_COUNT; ++i) {
+    Serial.printf("WiFi: trying SSID '%s'\n", SSIDS[i]);
+    WiFi.begin(SSIDS[i], PASSES[i]);
+
+    uint32_t t0 = millis();
+    while (WiFi.status() != WL_CONNECTED && (millis() - t0) < perNetWait) {
+      delay(250);
+      Serial.print(".");
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.printf("\nWiFi OK ssid=%s ip=%s\n",
+                    SSIDS[i],
+                    WiFi.localIP().toString().c_str());
+      return;
+    }
+
+    Serial.println("\nWiFi: failed on this SSID, trying next");
+    WiFi.disconnect(true, true);
+    delay(200);
   }
 
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.printf("\nWiFi OK ip=%s\n", WiFi.localIP().toString().c_str());
-  } else {
-    Serial.println("\nWiFi: not connected, continuing offline");
-  }
+  Serial.println("WiFi: not connected to any configured network, continuing offline");
 }
+
 
 
 // Health counters
