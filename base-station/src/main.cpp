@@ -39,8 +39,8 @@ static void connectWiFi(uint32_t maxWaitMs = 15000) {
   // List of networks to try, in order of preference
   const char* SSIDS[] = {
     "Hapenny",
-    "Spanky's House",
-    "Jay's phone",
+    "Spanky’s House",
+    "Jaysphone",
   };
   const char* PASSES[] = {
     "hapennyhouse",
@@ -55,7 +55,7 @@ static void connectWiFi(uint32_t maxWaitMs = 15000) {
 
   // Split the total wait time across all networks
   uint32_t perNetWait = (WIFI_COUNT > 0) ? maxWaitMs / WIFI_COUNT : maxWaitMs;
-  if (perNetWait < 2000) perNetWait = 2000;  // don't bother with super tiny timeouts
+  if (perNetWait < 2000) perNetWait = 3000;  // don't bother with super tiny timeouts
 
   for (int i = 0; i < WIFI_COUNT; ++i) {
     Serial.printf("WiFi: trying SSID '%s'\n", SSIDS[i]);
