@@ -57,7 +57,7 @@ float readBatteryVolts() {
   return -1.0f;
 }
 
-static void getSample(float& spd_ms, float& dir_deg);
+//static void getSample(float& spd_ms, float& dir_deg);
 
 // ---- helpers ----
 
@@ -378,6 +378,54 @@ void loop() {
   delay(5);
 }
 
+// === NMEA CHECKSUM HELPERS =====================================
+
+    // sentence should look like: "$...*HH" (HH = 2 hex chars, case-insensitive)
+    static int hexDigitToInt(char c) {
+      if (c >= '0' && c <= '9') return c - '0';
+      if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
+      if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
+      return -1;
+    }
+
+    static bool parseHexByte(char hi, char lo, uint8_t &out) {
+      int hiVal = hexDigitToInt(hi);
+      int loVal = hexDigitToInt(lo);
+      if (hiVal < 0 || loVal < 0) return false;
+      out = static_cast<uint8_t>((hiVal << 4) | loVal);
+      return true;
+    }
+
+    static bool nmeaChecksumValid(const char* sentence) {
+      if (!sentence) return false;
+
+      // Find '$'
+      const char* p = strchr(sentence, '$');
+      if (!p) return false;
+      p++;  // move past '$'
+
+      // Find '*'
+      const char* star = strchr(p, '*');
+      if (!star || !star[1] || !star[2]) {
+        return false;  // need 2 hex chars after '*'
+      }
+
+      // Compute XOR from after '$' up to char before '*'
+      uint8_t cs = 0;
+      const char* q = p;
+      while (q < star) {
+        cs ^= static_cast<uint8_t>(*q);
+        q++;
+      }
+
+      uint8_t msgCs = 0;
+      if (!parseHexByte(star[1], star[2], msgCs)) {
+        return false;
+      }
+
+      return cs == msgCs;
+    }
+
 // ==========================================================
 // ========== WindSonic Sample Reader Integration ============
 // ==========================================================
@@ -419,6 +467,21 @@ bool readWindsonicLine(float& spd_ms, float& gust_ms, float& dir_deg) {
   char line[96];
   if (!readLineFrom(Serial1, line, sizeof(line))) return false;
 
+  // --- If this is an NMEA sentence, enforce checksum ---
+  if (line[0] == '$') {
+    if (!nmeaChecksumValid(line)) {
+      // Optional: bump a counter or print for debug
+      // Serial.printf("Bad NMEA checksum: %s\n", line);
+      return false;
+    }
+
+    // Strip "*HH" so it doesn't confuse strtok()
+    char* star = strchr(line, '*');
+    if (star) {
+      *star = '\0';
+    }
+  }
+
   // --- Gill "Q" format: Q,dir_deg,speed_ms[,gust_ms] ---
   if ((line[0] == 'Q' || line[0] == 'q') && line[1] == ',') {
     char* p = line + 2;
@@ -433,7 +496,7 @@ bool readWindsonicLine(float& spd_ms, float& gust_ms, float& dir_deg) {
     }
   }
 
-  // --- NMEA MWV format: $--MWV,angle,R,speed,unit*CS ---
+  // --- NMEA MWV format: $--MWV,angle,R,speed,unit*CS (checksum already stripped) ---
   if (strstr(line, "MWV")) {
     char* p = (line[0] == '$') ? line + 1 : line;
     char* comma = strchr(p, ',');
