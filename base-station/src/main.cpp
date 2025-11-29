@@ -122,9 +122,8 @@ static int32_t  g_inflightCnt = -1;
 static uint32_t g_inflightMs  = 0;
 static const uint32_t INFLIGHT_GUARD_MS = 5000UL;
 
-// Drop/miss tracking (learn cadence in cnt-minutes)
+// Drop/miss tracking (per-packet seq cnt)
 static int32_t  g_lastCntAccepted  = -1;
-static int32_t  g_nominalCntStep   = -1;   // learned step in 'cnt' units (minutes)
 static uint32_t g_drop_total       = 0;
 static uint32_t g_delivered_total  = 0;
 
@@ -449,7 +448,7 @@ void setup() {
         sendAck((uint32_t)cnt, "OK");
       }
 
-      // ----- DROPPED PACKET ESTIMATE (based on Pearl cnt minutes) -----
+      // ----- DROPPED PACKET ESTIMATE (based on Pearl per-packet cnt) -----
       int32_t drop_gap = 0;
 
       if (cnt >= 0) {
@@ -457,18 +456,9 @@ void setup() {
           int32_t delta = cnt - g_lastCntAccepted;
 
           if (delta > 0) {
-            // Learn cadence on first good step, else use the learned cadence
-            if (g_nominalCntStep <= 0) {
-              g_nominalCntStep = delta;   // e.g., 2 for 2-min blocks, 5 for 5-min blocks
-            } else {
-              // Estimate missed packets between last and this one
-              drop_gap = (delta / g_nominalCntStep) - 1;
-              if (drop_gap < 0) drop_gap = 0;
-              g_drop_total += (uint32_t)drop_gap;
-            }
-          } else {
-            // cnt stayed same or went backwards -> Pearl likely rebooted; reset cadence learning
-            g_nominalCntStep = -1;
+            drop_gap = delta - 1;  // expect +1 per data packet
+            if (drop_gap < 0) drop_gap = 0;
+            g_drop_total += (uint32_t)drop_gap;
           }
         }
         g_lastCntAccepted = cnt;

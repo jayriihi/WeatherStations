@@ -78,9 +78,6 @@ static inline void simulateSample(float& spd_ms, float& dir_deg) {
 #endif
 
 
-// minutes since boot; swap to epoch/60 if you add RTC/NTP later
-static inline uint32_t bootMinutes() { return millis() / 60000UL; }
-
 // RadioLib wants a non-const String&
 static inline void txOnce(String& body) {
   int st = lora->transmit(body);
@@ -176,6 +173,19 @@ static float    sum_speed    = 0.0f;   // m/s
 static float    max_gust_1s  = 0.0f;   // m/s
 static float    sum_dir_x    = 0.0f;   // unitless
 static float    sum_dir_y    = 0.0f;   // unitless
+
+struct WindSample {
+  float    wind_avg_ms;
+  float    wind_max_ms;
+  float    wind_dir_deg;
+  float    batt_v;
+  uint32_t cnt;
+};
+
+// Simple per-packet sequence counter (resets on reboot).
+// Later we can persist this in NVS to survive resets.
+static uint32_t g_cnt = 0;
+static inline uint32_t nextCnt() { return g_cnt++; }
 
 static void accumulateSample(float spd_ms, float dir_deg) {
   if (isnan(spd_ms) || isnan(dir_deg)) return;
@@ -291,15 +301,20 @@ void loop() {
     float wind_avg_ms, wind_max_ms, wind_dir_deg;
     finalizeBlock(wind_avg_ms, wind_max_ms, wind_dir_deg);
 
-    // convert avg + gust to knots for debug sanity
-    float wind_avg_kt = wind_avg_ms * 1.94384f;
-    float wind_max_kt = wind_max_ms * 1.94384f;
-
     // placeholder battery reading
     float vbatt = readBatteryVolts();   // -1.00 until wired
 
-    // message counter for dedupe / ordering
-    uint32_t cnt = bootMinutes();       // minutes since boot
+    WindSample sample{
+      wind_avg_ms,
+      wind_max_ms,
+      wind_dir_deg,
+      vbatt,
+      nextCnt()
+    };
+
+    // convert avg + gust to knots for debug sanity
+    float wind_avg_kt = sample.wind_avg_ms * 1.94384f;
+    float wind_max_kt = sample.wind_max_ms * 1.94384f;
 
     // Build payload consistent with Base expectations:
     //   wind_avg  (knots)
@@ -312,9 +327,9 @@ void loop() {
       "{\"wind_avg\":%.1f,\"wind_max\":%.1f,\"wind_dir\":%.0f,\"cnt\":%lu,\"batt\":%.2f}",
       wind_avg_kt,
       wind_max_kt,
-      wind_dir_deg,
-      (unsigned long)cnt,
-      vbatt
+      sample.wind_dir_deg,
+      (unsigned long)sample.cnt,
+      sample.batt_v
     );
 
     String payload(buf);
@@ -327,11 +342,11 @@ void loop() {
 
     // Debug local printout
     Serial.println("----- BLOCK RESULT -----");
-    Serial.printf("avg   = %.2f m/s (%.1f kt)\n", wind_avg_ms, wind_avg_kt);
-    Serial.printf("gust  = %.2f m/s (%.1f kt)\n", wind_max_ms, wind_max_kt);
-    Serial.printf("dir   = %.1f deg\n",          wind_dir_deg);
-    Serial.printf("cnt   = %lu\n",               (unsigned long)cnt);
-    Serial.printf("batt  = %.2f V\n",            vbatt);
+    Serial.printf("avg   = %.2f m/s (%.1f kt)\n", sample.wind_avg_ms, wind_avg_kt);
+    Serial.printf("gust  = %.2f m/s (%.1f kt)\n", sample.wind_max_ms, wind_max_kt);
+    Serial.printf("dir   = %.1f deg\n",          sample.wind_dir_deg);
+    Serial.printf("cnt   = %lu\n",               (unsigned long)sample.cnt);
+    Serial.printf("batt  = %.2f V\n",            sample.batt_v);
     Serial.println("[TX] " + payload);
     Serial.println("------------------------\n");
 
@@ -347,7 +362,7 @@ void loop() {
       txOnce(payload);
 
       // wait ~1.2 s for ACK
-      if (waitForAck((uint32_t)cnt, 2500, &ackStatus)) {
+      if (waitForAck((uint32_t)sample.cnt, 2500, &ackStatus)) {
         acked = true;
         Serial.printf("PEARL: ACKed with status %s\n", ackStatus.c_str());
         break;
