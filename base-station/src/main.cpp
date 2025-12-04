@@ -169,6 +169,7 @@ static bool tryHandleBackfillFrame(const String& line);
 static bool sendBackfillReq(uint32_t from_cnt, uint32_t to_cnt);
 static void requestBackfillRange(uint32_t from_cnt, uint32_t to_cnt);
 static void maybeSendPendingBackfill();
+static void sendBackfillAck(uint32_t cnt);
 #endif
 
 
@@ -191,6 +192,7 @@ static const float LORA_FREQ_MHZ = 914.0f;   // LAB: Meshtastic test pair
 static const int   DOWNLINK_TX_DBM = 0;      // ACK/BF_REQ/DL_TEST power for LAB
 static const bool  ENABLE_ACK = false;       // disable ACK to simplify BF_REQ testing
 static const bool  LOG_POST_BODIES = false;  // mute verbose POST bodies in lab
+static const bool  ENABLE_BF_ACK = true;
 #else
 static const float LORA_FREQ_MHZ = 915.0f;   // Porch / production
 static const int   DOWNLINK_TX_DBM = 0;    // keep downlink low in production
@@ -349,6 +351,9 @@ static bool tryHandleBackfillFrame(const String& line) {
       Serial.printf("BASE BF_SAMPLE POST cnt=%lu code=%d\n",
                     (unsigned long)cnt_ul, code);
     }
+    #ifdef LAB_MODE
+    sendBackfillAck((uint32_t)cnt_ul);
+    #endif
   } else {
     Serial.printf("BASE BF_SAMPLE post failed (code=%d)\n", code);
   }
@@ -511,6 +516,21 @@ static void sendAck(uint32_t cnt, const char* status) {
   Serial.printf("BASE: ACK TX (%s) state=%d\n", frame, st);
   resetRadioForRx();
 }
+
+#ifdef LAB_MODE
+static void sendBackfillAck(uint32_t cnt) {
+  if (!ENABLE_BF_ACK) return;
+  char head[32];
+  snprintf(head, sizeof(head), "ACK_BF %lu", (unsigned long)cnt);
+  uint16_t crc = crc16_ccitt((const uint8_t*)head, strnlen(head, sizeof(head)));
+  char frame[48];
+  snprintf(frame, sizeof(frame), "%s*%04X", head, (unsigned)crc);
+  lora->standby();
+  int st = lora->transmit(frame);
+  Serial.printf("BASE: ACK_BF TX (%s) state=%d\n", frame, st);
+  resetRadioForRx();
+}
+#endif
 
 // SETUP
 void setup() {

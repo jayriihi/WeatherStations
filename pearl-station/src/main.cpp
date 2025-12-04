@@ -10,6 +10,7 @@ static void getSample(float& spd_ms, float& dir_deg);
 bool readWindsonicLine(float& spd_ms, float& gust_ms, float& dir_deg);
 
 #ifdef LAB_MODE
+static const bool ENABLE_BF_ACK = true;
 static bool parseBackfillReq(const String& line,
                              uint32_t& from_cnt,
                              uint32_t& to_cnt);
@@ -117,6 +118,59 @@ static Sample* findSampleByCnt(uint32_t cnt) {
   }
   return s;
 }
+
+#ifdef LAB_MODE
+static bool parseBackfillAck(const String& line, uint32_t& out_cnt) {
+  int star = line.lastIndexOf('*');
+  if (star < 0 || (line.length() - star - 1) < 4) return false;
+  String head = line.substring(0, star);
+  char hex4[5];
+  for (int i = 0; i < 4; ++i) {
+    char c = line[star + 1 + i];
+    if (!isxdigit((unsigned char)c)) return false;
+    hex4[i] = c;
+  }
+  hex4[4] = '\0';
+
+  unsigned rx_u = 0;
+  if (sscanf(hex4, "%04X", &rx_u) != 1) return false;
+  uint16_t rx_crc = (uint16_t)rx_u;
+
+  if (!head.startsWith("ACK_BF ")) return false;
+  String cntStr = head.substring(7);
+  cntStr.trim();
+  if (cntStr.length() == 0) return false;
+  out_cnt = (uint32_t)cntStr.toInt();
+
+  uint16_t calc = crc16_ccitt((const uint8_t*)head.c_str(), head.length());
+  return calc == rx_crc;
+}
+
+static bool waitForBackfillAck(uint32_t expect_cnt, uint32_t timeout_ms) {
+  unsigned long t0 = millis();
+  lora->startReceive();
+  while ((millis() - t0) < timeout_ms) {
+    if (lora->getPacketLength() != 0) {
+      String line;
+      int st = lora->readData(line);
+      if (st == RADIOLIB_ERR_NONE) {
+        line.trim();
+        uint32_t ack_cnt = 0;
+        if (parseBackfillAck(line, ack_cnt)) {
+          if (ack_cnt == expect_cnt) {
+            if (!MUTE_TX_LOGS) {
+              Serial.printf("PEARL BF_ACK rx for cnt=%lu\n", (unsigned long)ack_cnt);
+            }
+            return true;
+          }
+        }
+      }
+    }
+    delay(20);
+  }
+  return false;
+}
+#endif
 
 float readBatteryVolts() {
   // Battery sense not hooked up yet.
@@ -425,10 +479,6 @@ static void sendBackfillSample(const Sample& s) {
   snprintf(trailer, sizeof(trailer), "*%04X", (unsigned)crc);
   String frame = head + trailer;
 
-#ifdef LAB_MODE
-  lora->setOutputPower(10);  // give backfill frames more punch in lab
-#endif
-
   lora->standby();
   int st = lora->transmit(frame);
   if (!MUTE_TX_LOGS) {
@@ -436,12 +486,17 @@ static void sendBackfillSample(const Sample& s) {
                   (unsigned long)s.cnt, st);
   }
 #ifdef LAB_MODE
-  // Boost/retry aggressively in lab to fight corruption
-  for (int i = 0; i < 2; ++i) {
-    delay(180);
-    st = lora->transmit(frame);
-    Serial.printf("PEARL BF_SAMPLE extra%d cnt=%lu state=%d\n",
-                  i + 1, (unsigned long)s.cnt, st);
+  if (ENABLE_BF_ACK) {
+    bool ok = waitForBackfillAck(s.cnt, 1800);
+    if (!ok) {
+      delay(150);
+      st = lora->transmit(frame);
+      if (!MUTE_TX_LOGS) {
+        Serial.printf("PEARL BF_SAMPLE retry cnt=%lu state=%d\n",
+                      (unsigned long)s.cnt, st);
+      }
+      (void)waitForBackfillAck(s.cnt, 1200);
+    }
   }
 #endif
   lora->startReceive();
@@ -733,20 +788,7 @@ if (currentSample.cnt == 2 || currentSample.cnt == 3) {
 }
 #endif
 
-#ifdef LAB_MODE
-  // ---- FORCED GAP: skip TX for cnt 2 and 3 ----
-  if (thisCnt == 2 || thisCnt == 3) {
-    Serial.println("PEARL: INTENTIONALLY SKIPPING TX for gap test");
-    dl_debug_until = millis() + 20000UL;  // 20s window to log all RX frames
-    dl_debug_cap   = 300;                 // cap lines during debug window
-    dl_debug_seen  = 0;
-    dl_debug_bf    = 0;
-    uint32_t jitter = 300 + (esp_random() % 400);
-    delay(jitter);
-    // no payload build, no TX → Base will see a gap and issue BF_REQ
-    return;   // end this loop() iteration
-  }
-#endif
+  // No forced gaps; allow natural gap detection from Base
 
     // convert avg + gust to knots for debug sanity
     float wind_avg_kt = sample.wind_avg_ms * 1.94384f;
