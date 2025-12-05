@@ -5,6 +5,8 @@
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include <Preferences.h>
+#include "esp_attr.h"
 #include <time.h>
 #include <ctype.h>
 #include <string.h>
@@ -140,6 +142,7 @@ static uint32_t g_drop_total    = 0;
 static uint32_t g_total_packets = 0;
 static uint32_t g_drop_gap      = 0;
 static double   g_drop_rate     = 0.0;
+static Preferences g_prefs;
 
 static uint32_t g_delivered_total  = 0;
 
@@ -551,6 +554,15 @@ void setup() {
   connectWiFi(15000);
   initTimeUTC();
   g_start_ms = millis();
+  g_prefs.begin("base_state", false);
+  uint32_t stored = g_prefs.getUInt("last_cnt", UINT32_MAX);
+  if (stored != UINT32_MAX) {
+    g_last_cnt      = stored;
+    g_have_last_cnt = true;
+#ifdef LAB_MODE
+    Serial.printf("BASE: restored last cnt=%lu from NVS\n", (unsigned long)g_last_cnt);
+#endif
+  }
 
   SPI.begin(PIN_SCK, PIN_MISO, PIN_MOSI, PIN_NSS);
   modPtr = new Module(PIN_NSS, PIN_DIO1, PIN_RST, PIN_BUSY);
@@ -808,6 +820,7 @@ void loop() {
 
           g_last_cnt = rx_cnt;
         }
+        g_prefs.putUInt("last_cnt", g_last_cnt);
 
         if ((g_drop_total + g_total_packets) > 0) {
           g_drop_rate =
