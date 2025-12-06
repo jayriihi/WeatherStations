@@ -1,8 +1,37 @@
+/*
+  Build-time configuration:
+
+  - Select env in PlatformIO:
+      base_field / base_lab
+      pearl_field / pearl_lab
+
+  - Macros:
+      ENV_LAB / ENV_FIELD   : which environment is built
+      LAB_MODE              : base-station only, selects test vs prod Apps Script
+      LORA_FREQ             : LoRa center frequency (Hz)
+      LORA_TX_POWER         : LoRa TX power (dBm)
+      POST_BASE             : Google Apps Script endpoint (base-station only)
+      API_KEY               : shared API key for Apps Script (base-station only)
+
+  LAB builds:
+    - Define ENV_LAB (both Pearl + Base)
+    - Define LAB_MODE (Base only)
+    - 914 MHz, low TX power (2 dBm)
+    - Base posts to TEST sheet script URL
+
+  FIELD builds:
+    - Define ENV_FIELD
+    - Do NOT define LAB_MODE
+    - 915 MHz, normal TX power (14 dBm)
+    - Base posts to PROD 'Pearl' sheet script URL
+*/
+
 #include <Arduino.h>
 #include <SPI.h>
 #include <RadioLib.h>
 #include <math.h>
 #include <string.h>
+#include "Config.h"
 
 static void getSample(float& spd_ms, float& dir_deg);     // you already have this
 bool readWindsonicLine(float& spd_ms, float& gust_ms, float& dir_deg);
@@ -29,7 +58,7 @@ static uint16_t crc16_ccitt(const uint8_t* data, size_t len, uint16_t crc = 0xFF
 
 // length of each measurement block in seconds
 // use 10 for bench testing; set to 120 (2 min) in production
-static const uint16_t BLOCK_SECONDS = 120;
+static const uint16_t BLOCK_SECONDS = 30;
 
 // --- Heltec WiFi LoRa 32 V3 (SX1262) pins ---
 static const int PIN_NSS  = 8;   // CS
@@ -66,8 +95,6 @@ static inline float frand(float a, float b) {
   return a + (b - a) * (float)esp_random() / (float)UINT32_MAX;
 }
 
-#if !USE_WINDSONIC
-// simulator sample (only compiled when USE_WINDSONIC == 0)
 static inline void simulateSample(float& spd_ms, float& dir_deg) {
   spd_ms = frand(8.0f, 12.0f);
   if (frand(0.0f, 1.0f) > 0.97f) spd_ms = frand(13.0f, 17.0f);
@@ -75,7 +102,6 @@ static inline void simulateSample(float& spd_ms, float& dir_deg) {
   if (dir_deg < 0) dir_deg += 360.0f;
   if (dir_deg >= 360.0f) dir_deg -= 360.0f;
 }
-#endif
 
 
 // RadioLib wants a non-const String&
@@ -132,6 +158,7 @@ static bool waitForAck(uint32_t expect_cnt, uint32_t timeout_ms, String* out_sta
 
   // main wait
   lora->startReceive();
+  delay(20);  // small settle after RX re-enable
   unsigned nonAckPrinted = 0;
 
   while ((millis() - t0) < timeout_ms) {
@@ -238,11 +265,23 @@ void setup() {
   Serial.begin(115200);
   delay(300);
 
+#ifdef ENV_LAB
+  Serial.println("[ENV] LAB mode");
+#elif defined(ENV_FIELD)
+  Serial.println("[ENV] FIELD mode");
+#else
+  Serial.println("[ENV] UNKNOWN mode - no ENV_* macro set");
+#endif
+  Serial.print("LORA_FREQ = ");
+  Serial.println((unsigned long)LORA_FREQ);
+  Serial.print("LORA_TX_POWER = ");
+  Serial.println(LORA_TX_POWER);
+
   SPI.begin(PIN_SCK, PIN_MISO, PIN_MOSI, PIN_NSS);
   modPtr = new Module(PIN_NSS, PIN_DIO1, PIN_RST, PIN_BUSY);
   lora   = new SX1262(modPtr);
 
-  int st = lora->begin(915.0);
+  int st = lora->begin(loraFreqMHz());
   if (st != RADIOLIB_ERR_NONE) {
     Serial.printf("LoRa init failed (%d)\n", st);
     while (true) delay(1000);
@@ -259,7 +298,7 @@ void setup() {
   lora->setBandwidth(125.0);
   lora->setSpreadingFactor(9);
   lora->setCodingRate(5);
-  lora->setOutputPower(20);   // keep low if boards are close
+  lora->setOutputPower(LORA_TX_POWER);
   lora->setCRC(true);
 
   Serial.println("PEARL: LoRa OK");
@@ -361,8 +400,8 @@ void loop() {
       Serial.printf("PEARL: TX attempt %d\n", attempt);
       txOnce(payload);
 
-      // wait ~1.2 s for ACK
-      if (waitForAck((uint32_t)sample.cnt, 2500, &ackStatus)) {
+      // wait a bit longer for ACK to help bench/short-range timing
+      if (waitForAck((uint32_t)sample.cnt, 3000, &ackStatus)) {
         acked = true;
         Serial.printf("PEARL: ACKed with status %s\n", ackStatus.c_str());
         break;
@@ -453,8 +492,14 @@ static void getSample(float& spd_ms, float& dir_deg) {
   if (readWindsonicLine(spd_ms, gust_dummy, dir_deg)) {
     return;
   }
-  spd_ms = NAN;
-  dir_deg = NAN;
+  // In LAB (or when sensor data is missing), fall back to the simulator to keep
+  // the 1 Hz loop producing values instead of NaNs.
+  #ifdef ENV_LAB
+    simulateSample(spd_ms, dir_deg);
+  #else
+    spd_ms = NAN;
+    dir_deg = NAN;
+  #endif
 #else
   // existing simulator
   simulateSample(spd_ms, dir_deg);

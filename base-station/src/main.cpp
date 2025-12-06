@@ -1,3 +1,31 @@
+/*
+  Build-time configuration:
+
+  - Select env in PlatformIO:
+      base_field / base_lab
+      pearl_field / pearl_lab
+
+  - Macros:
+      ENV_LAB / ENV_FIELD   : which environment is built
+      LAB_MODE              : base-station only, selects test vs prod Apps Script
+      LORA_FREQ             : LoRa center frequency (Hz)
+      LORA_TX_POWER         : LoRa TX power (dBm)
+      POST_BASE             : Google Apps Script endpoint (base-station only)
+      API_KEY               : shared API key for Apps Script (base-station only)
+
+  LAB builds:
+    - Define ENV_LAB (both Pearl + Base)
+    - Define LAB_MODE (Base only)
+    - 914 MHz, low TX power (2 dBm)
+    - Base posts to TEST sheet script URL
+
+  FIELD builds:
+    - Define ENV_FIELD
+    - Do NOT define LAB_MODE
+    - 915 MHz, normal TX power (14 dBm)
+    - Base posts to PROD 'Pearl' sheet script URL
+*/
+
 #include <Arduino.h>
 #include <SPI.h>
 #include <RadioLib.h>
@@ -8,6 +36,18 @@
 #include <time.h>
 #include <ctype.h>
 #include <string.h>
+#include "Config.h"
+
+// ---------- Google Apps Script endpoint + API key ----------
+#ifdef LAB_MODE
+  // LAB: writes to 'test' tab
+  #define POST_BASE "https://script.google.com/macros/s/AKfycbw04W7Gro8RZLqBTO1T64v_6ii_u_Sa5rm2CY-NmL3s-tl4hnEIZXStDCfbS3oVdJ5kTg/exec"
+#else
+  // PROD: writes to 'Pearl' tab
+  #define POST_BASE "https://script.google.com/macros/s/AKfycbxkcVc6BP2oJtQcA8BcAvWwrIU9eDIGanyI5yWvj7GwHgISrCKnozDGZMXJ0b0xHGFu/exec"
+#endif
+
+#define API_KEY "jI6nrJ2KTsgK0SDu"
 
 // === CRC16 APP-LAYER ===
 static uint16_t crc16_ccitt(const uint8_t* data, size_t len, uint16_t crc = 0xFFFF) {
@@ -91,10 +131,6 @@ static uint32_t g_rf_dup   = 0;
 static uint32_t g_boot_id  = (uint32_t)esp_random();
 static uint32_t g_start_ms = 0;
 
-// ---------- Google Apps Script endpoint + API key ----------
-#define POST_BASE "https://script.google.com/macros/s/AKfycbxkcVc6BP2oJtQcAB8cAvWWrIU9eDIGanyI5yWVj7GwHgISrCKnozDGZMXJobOxHGFu/exec"
-#define API_KEY   "jI6nrJ2KTsgK0SDu"
-
 // Heltec WiFi LoRa 32 V3 (SX1262) pins
 static const int PIN_NSS  = 8;
 static const int PIN_DIO1 = 14;
@@ -146,7 +182,7 @@ static void resetRadioForRx() {
   lora->standby();
   delay(5);
 
-  lora->begin(915.0);
+  lora->begin(loraFreqMHz());
   lora->setDio2AsRfSwitch(true);
   lora->setSyncWord(0x34);
   lora->setBandwidth(125.0);
@@ -154,7 +190,7 @@ static void resetRadioForRx() {
   lora->setCodingRate(5);
   lora->setRxBoostedGainMode(true);
   lora->setCRC(true);
-  lora->setOutputPower(-10);  // keep downlink ACK very low power for bench
+  lora->setOutputPower(LORA_TX_POWER);
 
 
   lora->startReceive();
@@ -266,6 +302,28 @@ void setup() {
   Serial.begin(115200);
   delay(300);
 
+#ifdef ENV_LAB
+  Serial.println("[ENV] LAB mode");
+#elif defined(ENV_FIELD)
+  Serial.println("[ENV] FIELD mode");
+#else
+  Serial.println("[ENV] UNKNOWN mode - no ENV_* macro set");
+#endif
+  Serial.print("LORA_FREQ = ");
+  Serial.println((unsigned long)LORA_FREQ);
+  Serial.print("LORA_TX_POWER = ");
+  Serial.println(LORA_TX_POWER);
+
+#ifdef LAB_MODE
+  Serial.println("[SCRIPT] LAB_MODE active – posting to TEST sheet endpoint");
+#else
+  Serial.println("[SCRIPT] LAB_MODE not set – posting to PROD 'Pearl' sheet endpoint");
+#endif
+  Serial.print("POST_BASE = ");
+  Serial.println(POST_BASE);
+  Serial.print("API_KEY = ");
+  Serial.println(API_KEY);
+
   pinMode(LED_HEARTBEAT, OUTPUT);
   digitalWrite(LED_HEARTBEAT, LOW);
 
@@ -285,7 +343,7 @@ void setup() {
   modPtr = new Module(PIN_NSS, PIN_DIO1, PIN_RST, PIN_BUSY);
   lora   = new SX1262(modPtr);
 
-  int st = lora->begin(915.0);
+  int st = lora->begin(loraFreqMHz());
   Serial.print("BASE begin()-> "); Serial.println(st);
   if (st != RADIOLIB_ERR_NONE) {
     Serial.println("LoRa init failed");
@@ -299,6 +357,7 @@ void setup() {
   lora->setCodingRate(5);
   lora->setRxBoostedGainMode(true);
   lora->setCRC(true);
+  lora->setOutputPower(LORA_TX_POWER);
 
   lora->startReceive();
   Serial.println("BASE: ready (listening)");
