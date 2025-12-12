@@ -38,13 +38,17 @@
 #include <string.h>
 #include "Config.h"
 
+#ifdef HAS_DISPLAY
+#include "DisplayUI.h"
+#endif
+
 // ---------- Google Apps Script endpoint + API key ----------
 #ifdef LAB_MODE
   // LAB: writes to 'test' tab
   #define POST_BASE "https://script.google.com/macros/s/AKfycbw04W7Gro8RZLqBTO1T64v_6ii_u_Sa5rm2CY-NmL3s-tl4hnEIZXStDCfbS3oVdJ5kTg/exec"
 #else
   // PROD: writes to 'Pearl' tab
-  #define POST_BASE "https://script.google.com/macros/s/AKfycbxkcVc6BP2oJtQcA8BcAvWwrIU9eDIGanyI5yWvj7GwHgISrCKnozDGZMXJ0b0xHGFu/exec"
+  #define POST_BASE "https://script.google.com/macros/s/AKfycbxkcVc6BP2oJtQcAB8cAvWWrIU9eDIGanyI5yWVj7GwHgISrCKnozDGZMXJobOxHGFu/exec"
 #endif
 
 #define API_KEY "jI6nrJ2KTsgK0SDu"
@@ -360,12 +364,21 @@ void setup() {
   lora->setOutputPower(LORA_TX_POWER);
 
   lora->startReceive();
+
+#ifdef HAS_DISPLAY
+  DisplayUI::begin();
+#endif
+
   Serial.println("BASE: ready (listening)");
 }
 
       // LOOP
     void loop() {
       uint32_t now = millis();
+
+#ifdef HAS_DISPLAY
+      DisplayUI::loop();
+#endif
 
       // If we've heard a packet recently, show solid ON so it's easy to see during range tests
       if (now < g_rxHoldUntilMs) {
@@ -494,6 +507,10 @@ void setup() {
         resetRadioForRx(); delay(20); return;
       }
 
+#ifdef HAS_DISPLAY
+      DisplayUI::notifyRx();
+#endif
+
       // Range-test indicator: keep LED solid for a while after a valid packet
       g_rxHoldUntilMs = millis() + 10000UL;   // LED solid ON for ~10 seconds
       Serial.printf("RX: hold LED until %lu\n", (unsigned long)g_rxHoldUntilMs);
@@ -599,9 +616,15 @@ void setup() {
         g_lastPostMs = millis();
         if (cnt >= 0) g_lastCntPosted = cnt;
         g_delivered_total++;     // <-- count delivered rows for rate calc
+#ifdef HAS_DISPLAY
+        DisplayUI::notifyPost(true);
+#endif
         if (cnt >= 0) sendAck((uint32_t)cnt, "OK");
       } else {
         Serial.printf("POST not successful (code=%d)\n", code);
+#ifdef HAS_DISPLAY
+        DisplayUI::notifyPost(false);
+#endif
         // treat as transient → no ACK so Pearl may retry
       }
 
