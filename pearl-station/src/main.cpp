@@ -72,18 +72,63 @@ static const int PIN_MOSI = 10;
 Module* modPtr = nullptr;
 SX1262* lora   = nullptr;
 
-// Battery sensing not wired yet.
-// #define PIN_BATTERY_SENSE  1   // <- will become an ADC1 pin once installed
+// -------- Battery sensing config --------
 
-static const float ADC_REF_V       = 3.3f;
-static const float ADC_MAX_COUNTS  = 4095.0f;
-static const float DIVIDER_GAIN    = 4.6f;   // 360k / 100k divider ratio
-static const int   BATT_SAMPLES    = 8;
+// ADC pin used for the divider: GPIO2 on the Heltec
+#define PIN_BATTERY_SENSE   2
 
+// ADC reference and resolution
+static const float ADC_REF_V      = 3.3f;
+static const float ADC_MAX_COUNTS = 4095.0f;
+
+// Divider resistor values (ohms)
+static const float R1_BAT = 220000.0f;  // battery -> node
+static const float R2_BAT = 47000.0f;   // node -> GND
+static const float R3_BAT = 100.0f;     // node -> GND (small load / RC tail)
+
+// How many samples to average per reading
+static const int   BATT_SAMPLES   = 16;
+
+// Precompute gain from node voltage to battery voltage:
+// Vbat = Vnode * (R1 + R2 + R3) / (R2 + R3)
+static const float BAT_DIVIDER_GAIN =
+    (R1_BAT + R2_BAT + R3_BAT) / (R2_BAT + R3_BAT);
+
+// Simple LiFePO4 status thresholds (12.8V nominal 4S)
+static const float BATT_OK_MIN   = 13.1f;  // >= OK
+static const float BATT_LOW_MIN  = 12.7f;  // LOW if [12.7, 13.1)
+static const float BATT_CRIT_MIN = 12.5f;  // CRIT if [12.5, 12.7)
+
+// Map voltage to status string
+static const char* batteryStatusFromVolts(float v) {
+  if (v < 0.0f) {
+    return "UNKNOWN";  // e.g. sensor not wired
+  } else if (v < BATT_CRIT_MIN) {
+    return "FAIL";     // essentially “this shouldn’t happen”
+  } else if (v < BATT_LOW_MIN) {
+    return "CRIT";
+  } else if (v < BATT_OK_MIN) {
+    return "LOW";
+  } else {
+    return "OK";
+  }
+}
+
+// Read and scale battery voltage (in volts)
 float readBatteryVolts() {
-  // Battery sense not hooked up yet.
-  // Return sentinel so we can still log a batt field.
-  return -1.0f;
+  // If the pin isn't wired yet, this will just read noise/0-ish.
+  // That's fine until the divider is physically connected.
+  uint32_t acc = 0;
+  for (int i = 0; i < BATT_SAMPLES; ++i) {
+    acc += (uint32_t)analogRead(PIN_BATTERY_SENSE);
+    delay(2);  // tiny settle between samples
+  }
+
+  float raw    = (float)acc / (float)BATT_SAMPLES;         // 0..4095
+  float v_node = (raw / ADC_MAX_COUNTS) * ADC_REF_V;       // node voltage
+  float v_batt = v_node * BAT_DIVIDER_GAIN;                // scaled to battery
+
+  return v_batt;
 }
 
 //static void getSample(float& spd_ms, float& dir_deg);
@@ -277,6 +322,11 @@ void setup() {
   Serial.print("LORA_TX_POWER = ");
   Serial.println(LORA_TX_POWER);
 
+  // Battery ADC setup
+  pinMode(PIN_BATTERY_SENSE, INPUT);
+  analogReadResolution(12);        // 0..4095
+  analogSetAttenuation(ADC_11db);  // allow ~3.3V at the node
+
   SPI.begin(PIN_SCK, PIN_MISO, PIN_MOSI, PIN_NSS);
   modPtr = new Module(PIN_NSS, PIN_DIO1, PIN_RST, PIN_BUSY);
   lora   = new SX1262(modPtr);
@@ -340,8 +390,7 @@ void loop() {
     float wind_avg_ms, wind_max_ms, wind_dir_deg;
     finalizeBlock(wind_avg_ms, wind_max_ms, wind_dir_deg);
 
-    // placeholder battery reading
-    float vbatt = readBatteryVolts();   // -1.00 until wired
+    float vbatt = readBatteryVolts();
 
     WindSample sample{
       wind_avg_ms,
@@ -355,20 +404,26 @@ void loop() {
     float wind_avg_kt = sample.wind_avg_ms * 1.94384f;
     float wind_max_kt = sample.wind_max_ms * 1.94384f;
 
+    const char* batt_status = batteryStatusFromVolts(sample.batt_v);
+
     // Build payload consistent with Base expectations:
     //   wind_avg  (knots)
     //   wind_max  (knots gust)
     //   wind_dir  (deg 0-360)
     //   cnt       (monotonic counter)
     //   batt      (V or -1.00 sentinel)
+    //   batt_status ("OK"/"LOW"/"CRIT"/"FAIL"/"UNKNOWN")
     char buf[224];
     snprintf(buf, sizeof(buf),
-      "{\"wind_avg\":%.1f,\"wind_max\":%.1f,\"wind_dir\":%.0f,\"cnt\":%lu,\"batt\":%.2f}",
+      "{\"wind_avg\":%.1f,\"wind_max\":%.1f,"
+      "\"wind_dir\":%.0f,\"cnt\":%lu,"
+      "\"batt\":%.2f,\"batt_status\":\"%s\"}",
       wind_avg_kt,
       wind_max_kt,
       sample.wind_dir_deg,
       (unsigned long)sample.cnt,
-      sample.batt_v
+      sample.batt_v,
+      batt_status
     );
 
     String payload(buf);
