@@ -33,6 +33,16 @@
 #include <string.h>
 #include "Config.h"
 
+// Logging helpers: quiet in FIELD, verbose in LAB
+#ifdef ENV_FIELD
+#define LOGV(...) do {} while(0)
+#define LOGI(...) do { Serial.printf(__VA_ARGS__); } while(0)
+#else
+#define LOGV(...) do { Serial.printf(__VA_ARGS__); } while(0)
+#define LOGI(...) do { Serial.printf(__VA_ARGS__); } while(0)
+#endif
+#define LOGE(...) do { Serial.printf(__VA_ARGS__); } while(0)
+
 static void getSample(float& spd_ms, float& dir_deg);     // you already have this
 bool readWindsonicLine(float& spd_ms, float& gust_ms, float& dir_deg);
 
@@ -56,9 +66,24 @@ static uint16_t crc16_ccitt(const uint8_t* data, size_t len, uint16_t crc = 0xFF
 #define WIND_RX_PIN       19        // converter TXD -> this pin
 #define WIND_TX_PIN       -1         // not sending to sensor
 
+// Timing knobs (Field vs Lab)
+#ifdef ENV_FIELD
+static const uint32_t ACK_WAIT_MS         = 2500;   // wait for ACK per attempt
+static const uint32_t RETRY_BACKOFF_MIN   = 100;    // ms
+static const uint32_t RETRY_BACKOFF_RANGE = 100;    // adds 0..99 ms
+#else
+static const uint32_t ACK_WAIT_MS         = 3000;
+static const uint32_t RETRY_BACKOFF_MIN   = 200;
+static const uint32_t RETRY_BACKOFF_RANGE = 300;    // adds 0..299 ms
+#endif
+
 // length of each measurement block in seconds
-// use 10 for bench testing; set to 120 (2 min) in production
+// LAB stays fast for bench; FIELD slows to 300s (5 min) between posts
+#ifdef ENV_FIELD
+static const uint16_t BLOCK_SECONDS = 300;
+#else
 static const uint16_t BLOCK_SECONDS = 30;
+#endif
 
 // --- Heltec WiFi LoRa 32 V3 (SX1262) pins ---
 static const int PIN_NSS  = 8;   // CS
@@ -152,7 +177,7 @@ static inline void simulateSample(float& spd_ms, float& dir_deg) {
 // RadioLib wants a non-const String&
 static inline void txOnce(String& body) {
   int st = lora->transmit(body);
-  Serial.printf("PEARL TX state: %d\n", st);
+  LOGI("PEARL TX state: %d\n", st);
 }
 
 // === ACK SUPPORT ===
@@ -215,9 +240,9 @@ static bool waitForAck(uint32_t expect_cnt, uint32_t timeout_ms, String* out_sta
 
         // optional debug — show first few non-ACK frames only
         if (line.startsWith("ACK ")) {
-          Serial.printf("PEARL: ACK RX raw: %s\n", line.c_str());
+          LOGV("PEARL: ACK RX raw: %s\n", line.c_str());
         } else if (nonAckPrinted < 2) {
-          Serial.printf("PEARL: non-ACK sample: %s\n", line.c_str());
+          LOGV("PEARL: non-ACK sample: %s\n", line.c_str());
           nonAckPrinted++;
         }
 
@@ -226,8 +251,8 @@ static bool waitForAck(uint32_t expect_cnt, uint32_t timeout_ms, String* out_sta
         if (parseAckLine(line, cnt_rx, status)) {
           if (cnt_rx == expect_cnt) {
             if (out_status) *out_status = status;
-            Serial.printf("PEARL: got ACK cnt=%lu status=%s\n",
-                          (unsigned long)cnt_rx, status.c_str());
+            LOGI("PEARL: got ACK cnt=%lu status=%s\n",
+                 (unsigned long)cnt_rx, status.c_str());
             return true;
           }
         }
@@ -305,22 +330,25 @@ static void finalizeBlock(float &wind_avg_ms,
   sum_dir_y    = 0.0f;
 }
 
+// timing state
+static unsigned long next_sample_ms   = 0;
+static unsigned long next_block_ms    = 0;
+static uint16_t      seconds_in_block = 0;
+
 // ========== SETUP ==========
 void setup() {
   Serial.begin(115200);
   delay(300);
 
 #ifdef ENV_LAB
-  Serial.println("[ENV] LAB mode");
+  LOGI("[ENV] LAB mode\n");
 #elif defined(ENV_FIELD)
-  Serial.println("[ENV] FIELD mode");
+  LOGI("[ENV] FIELD mode\n");
 #else
-  Serial.println("[ENV] UNKNOWN mode - no ENV_* macro set");
+  LOGI("[ENV] UNKNOWN mode - no ENV_* macro set\n");
 #endif
-  Serial.print("LORA_FREQ = ");
-  Serial.println((unsigned long)LORA_FREQ);
-  Serial.print("LORA_TX_POWER = ");
-  Serial.println(LORA_TX_POWER);
+  LOGI("LORA_FREQ = %lu\n", (unsigned long)LORA_FREQ);
+  LOGI("LORA_TX_POWER = %d\n", LORA_TX_POWER);
 
   // Battery ADC setup
   pinMode(PIN_BATTERY_SENSE, INPUT);
@@ -333,13 +361,13 @@ void setup() {
 
   int st = lora->begin(loraFreqMHz());
   if (st != RADIOLIB_ERR_NONE) {
-    Serial.printf("LoRa init failed (%d)\n", st);
+    LOGE("LoRa init failed (%d)\n", st);
     while (true) delay(1000);
   }
 
   #if USE_WINDSONIC
     Serial1.begin(WINDSONIC_BAUD, SERIAL_8N1, WIND_RX_PIN, WIND_TX_PIN);
-    Serial.println("WindSonic UART ready");
+    LOGV("WindSonic UART ready\n");
   #endif
 
   // MUST match Base
@@ -351,14 +379,14 @@ void setup() {
   lora->setOutputPower(LORA_TX_POWER);
   lora->setCRC(true);
 
-  Serial.println("PEARL: LoRa OK");
-  Serial.printf("USE_WINDSONIC=%d BLOCK_SECONDS=%u\n",
-              (int)USE_WINDSONIC, (unsigned)BLOCK_SECONDS);
-}
+  LOGI("PEARL: LoRa OK\n");
+  LOGI("USE_WINDSONIC=%d BLOCK_SECONDS=%u\n",
+       (int)USE_WINDSONIC, (unsigned)BLOCK_SECONDS);
 
-// timing state
-static unsigned long last_sample_ms   = 0;
-static uint16_t      seconds_in_block = 0;
+  unsigned long t0 = millis();
+  next_sample_ms = t0 + 1000UL;
+  next_block_ms  = t0 + (uint32_t)BLOCK_SECONDS * 1000UL;
+}
 
 // ========== LOOP ==========
 // We do 1 Hz sampling into a block. When the block ends, we:
@@ -369,22 +397,26 @@ static uint16_t      seconds_in_block = 0;
 void loop() {
   unsigned long now = millis();
 
-  // 1 Hz sampler
-  if (now - last_sample_ms >= 1000) {
-    last_sample_ms = now;
+  // 1 Hz sampler (absolute schedule to avoid drift)
+  while ((int32_t)(now - next_sample_ms) >= 0) {
+    next_sample_ms += 1000UL;
     seconds_in_block++;
 
     float spd_ms, dir_deg;
     getSample(spd_ms, dir_deg);
     accumulateSample(spd_ms, dir_deg);
 
-    Serial.printf("sample %3u: spd=%.2f m/s dir=%.1f deg\n",
-                  seconds_in_block, spd_ms, dir_deg);
+    LOGV("sample %3u: spd=%.2f m/s dir=%.1f deg\n",
+         seconds_in_block, spd_ms, dir_deg);
   }
 
   // end of block?
-  if (seconds_in_block >= BLOCK_SECONDS) {
+  if ((int32_t)(now - next_block_ms) >= 0) {
     seconds_in_block = 0;
+    next_block_ms += (uint32_t)BLOCK_SECONDS * 1000UL;
+    while ((int32_t)(now - next_block_ms) >= 0) {
+      next_block_ms += (uint32_t)BLOCK_SECONDS * 1000UL;
+    }
 
     // finalize the rolling 2-min-style block
     float wind_avg_ms, wind_max_ms, wind_dir_deg;
@@ -435,14 +467,14 @@ void loop() {
     payload += trailer;                                // "{...}*9A5B"
 
     // Debug local printout
-    Serial.println("----- BLOCK RESULT -----");
-    Serial.printf("avg   = %.2f m/s (%.1f kt)\n", sample.wind_avg_ms, wind_avg_kt);
-    Serial.printf("gust  = %.2f m/s (%.1f kt)\n", sample.wind_max_ms, wind_max_kt);
-    Serial.printf("dir   = %.1f deg\n",          sample.wind_dir_deg);
-    Serial.printf("cnt   = %lu\n",               (unsigned long)sample.cnt);
-    Serial.printf("batt  = %.2f V\n",            sample.batt_v);
-    Serial.println("[TX] " + payload);
-    Serial.println("------------------------\n");
+    LOGV("----- BLOCK RESULT -----\n");
+    LOGV("avg   = %.2f m/s (%.1f kt)\n", sample.wind_avg_ms, wind_avg_kt);
+    LOGV("gust  = %.2f m/s (%.1f kt)\n", sample.wind_max_ms, wind_max_kt);
+    LOGV("dir   = %.1f deg\n",          sample.wind_dir_deg);
+    LOGV("cnt   = %lu\n",               (unsigned long)sample.cnt);
+    LOGV("batt  = %.2f V\n",            sample.batt_v);
+    LOGV("[TX] %s\n", payload.c_str());
+    LOGV("------------------------\n");
 
     // LoRa TX with ACK/Retry
     const int MAX_TX_ATTEMPTS = 3;
@@ -452,29 +484,24 @@ void loop() {
 
     while (attempt < MAX_TX_ATTEMPTS && !acked) {
       attempt++;
-      Serial.printf("PEARL: TX attempt %d\n", attempt);
+      LOGI("PEARL: TX attempt %d\n", attempt);
       txOnce(payload);
 
       // wait a bit longer for ACK to help bench/short-range timing
-      if (waitForAck((uint32_t)sample.cnt, 3000, &ackStatus)) {
+      if (waitForAck((uint32_t)sample.cnt, ACK_WAIT_MS, &ackStatus)) {
         acked = true;
-        Serial.printf("PEARL: ACKed with status %s\n", ackStatus.c_str());
+        LOGI("PEARL: ACKed with status %s\n", ackStatus.c_str());
         break;
       }
 
       // small randomized backoff before retry
-      uint32_t backoff = 200 + (esp_random() % 300);  // 200..499 ms
+      uint32_t backoff = RETRY_BACKOFF_MIN + (esp_random() % RETRY_BACKOFF_RANGE);
       delay(backoff);
     }
 
     if (!acked) {
-      Serial.println("PEARL: no ACK received after retries");
+      LOGE("PEARL: no ACK received after retries\n");
     }
-
-    // jittered pause before starting next block sampling loop
-    // (keeps us from slamming exactly on the minute every time)
-    uint32_t jitter = 200 + (esp_random() % 400);  // 200..599 ms
-    delay(jitter);
 
     // NOTE:
     // We immediately resume sampling next loop(), no deep sleep yet.
