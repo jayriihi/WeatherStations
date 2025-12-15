@@ -72,9 +72,6 @@ static uint16_t crc16_ccitt(const uint8_t* data, size_t len, uint16_t crc = 0xFF
 // Onboard white LED on GPIO 35
 static const int LED_HEARTBEAT = 35;
 
-static uint32_t g_lastHeartbeatMs = 0;
-static bool     g_hbState         = false;
-
 static uint32_t g_rxHoldUntilMs = 0;
 
 
@@ -384,21 +381,8 @@ void setup() {
       if (now < g_rxHoldUntilMs) {
         digitalWrite(LED_HEARTBEAT, HIGH);
       } else {
-        // Otherwise do the gentle heartbeat wink every 2 seconds
-        static bool     hbOn    = false;
-        static uint32_t hbOffMs = 0;
-
-        if (!hbOn && (now - g_lastHeartbeatMs >= 2000)) {
-          g_lastHeartbeatMs = now;
-          hbOn    = true;
-          hbOffMs = now + 50;               // LED ON for ~50 ms
-          digitalWrite(LED_HEARTBEAT, HIGH);
-        }
-
-        if (hbOn && now >= hbOffMs) {
-          hbOn = false;
-          digitalWrite(LED_HEARTBEAT, LOW);
-        }
+        // Otherwise keep it off (heartbeat wink removed)
+        digitalWrite(LED_HEARTBEAT, LOW);
       }
 
 
@@ -542,23 +526,17 @@ void setup() {
 
       // Build body (with health + drop stats)
       uint32_t uptime_s = (millis() - g_start_ms) / 1000UL;
-      float drop_rate = 0.0f;
       uint32_t delivered_next = g_delivered_total + 1; // counting this one
-      if ((g_drop_total + delivered_next) > 0) {
-        drop_rate = (float)g_drop_total / (float)(g_drop_total + delivered_next);
-      }
 
       char buf[420];
       snprintf(buf, sizeof(buf),
                "wind_avg=%.1f&wind_max=%.1f&wind_dir=%d"
                "&cnt=%ld&batt=%.2f&rssi=%.1f&snr=%.1f"
-               "&crc_ok=%lu&crc_fail=%lu&rf_dup=%lu&uptime_s=%lu&boot_id=%lu&fw=base_1"
-               "&drop_gap=%ld&drop_total=%lu&drop_rate=%.4f",
+               "&crc_ok=%lu&crc_fail=%lu&rf_dup=%lu&uptime_s=%lu",
                wind_avg, wind_max, wind_dir,
                (long)cnt, batt_v, rssi_f, snr_f,
                (unsigned long)g_crc_ok, (unsigned long)g_crc_fail, (unsigned long)g_rf_dup,
-               (unsigned long)uptime_s, (unsigned long)g_boot_id,
-               (long)drop_gap, (unsigned long)g_drop_total, drop_rate);
+               (unsigned long)uptime_s);
 
       String body(buf);
       Serial.printf("BODY (clean): %s\n", body.c_str());
