@@ -85,6 +85,14 @@ static const uint16_t BLOCK_SECONDS = 300;
 static const uint16_t BLOCK_SECONDS = 30;
 #endif
 
+// Sampling + averaging windows (seconds)
+static const uint16_t SAMPLE_PERIOD_SEC = 1;                 // 1 Hz
+static const uint16_t POST_PERIOD_SEC   = BLOCK_SECONDS;     // e.g. 300s in FIELD
+static const uint16_t MEAN_WINDOW_SEC   = 120;               // 2-minute mean
+static const uint8_t  GUST_WINDOW_SEC   = 3;                 // 3-second gust definition
+static const uint16_t GUST_LOOKBACK_SEC = BLOCK_SECONDS;     // 5-minute gust lookback
+static_assert(GUST_LOOKBACK_SEC == POST_PERIOD_SEC, "gust lookback must match posting interval");
+
 // --- Heltec WiFi LoRa 32 V3 (SX1262) pins ---
 static const int PIN_NSS  = 8;   // CS
 static const int PIN_DIO1 = 14;
@@ -264,12 +272,20 @@ static bool waitForAck(uint32_t expect_cnt, uint32_t timeout_ms, String* out_sta
 }
 
 
-// ========== ACCUMULATORS FOR THE ACTIVE BLOCK (2 min in production) ==========
-static uint16_t sample_count = 0;
-static float    sum_speed    = 0.0f;   // m/s
-static float    max_gust_1s  = 0.0f;   // m/s
-static float    sum_dir_x    = 0.0f;   // unitless
-static float    sum_dir_y    = 0.0f;   // unitless
+// ========== WIND BUFFER (2-min mean inside a 5-min posting block) ==========
+// Mean is a 2-minute vector average; gust is a 3-second running mean over the full block.
+// We keep up to POST_PERIOD_SEC samples (max 300 in FIELD)
+static const uint16_t MAX_SAMPLES = POST_PERIOD_SEC;  // 300
+
+static float speed_buf[MAX_SAMPLES];
+static float dirx_buf[MAX_SAMPLES];
+static float diry_buf[MAX_SAMPLES];
+
+static uint16_t buf_count = 0;   // how many valid samples we have (<= MAX_SAMPLES)
+static uint16_t buf_head  = 0;   // index where the next sample will be written
+
+// For the 3-second running-mean gust over the whole block
+static float max_gust_3s_ms = 0.0f;
 
 struct WindSample {
   float    wind_avg_ms;
@@ -286,20 +302,33 @@ static inline uint32_t nextCnt() { return g_cnt++; }
 
 static void accumulateSample(float spd_ms, float dir_deg) {
   if (isnan(spd_ms) || isnan(dir_deg)) return;
-  // avg speed math
-  sum_speed += spd_ms;
 
-  // gust math (1-second instantaneous peak)
-  if (spd_ms > max_gust_1s) {
-    max_gust_1s = spd_ms;
+  float rad = dir_deg * DEG_TO_RAD;
+  float x = cosf(rad);
+  float y = sinf(rad);
+
+  // write at head
+  speed_buf[buf_head] = spd_ms;
+  dirx_buf[buf_head]  = x;
+  diry_buf[buf_head]  = y;
+
+  buf_head = (buf_head + 1) % MAX_SAMPLES;
+  if (buf_count < MAX_SAMPLES) {
+    buf_count++;
   }
 
-  // circular mean for direction
-  float rad = dir_deg * DEG_TO_RAD;
-  sum_dir_x += cosf(rad);
-  sum_dir_y += sinf(rad);
+  // 3-second running mean gust (only if we have at least 3 samples)
+  if (buf_count >= GUST_WINDOW_SEC) {
+    // indices of last 3 samples in the ring
+    int i2 = (int(buf_head) + MAX_SAMPLES - 1) % MAX_SAMPLES;
+    int i1 = (i2 + MAX_SAMPLES - 1) % MAX_SAMPLES;
+    int i0 = (i1 + MAX_SAMPLES - 1) % MAX_SAMPLES;
 
-  sample_count++;
+    float mean3 = (speed_buf[i0] + speed_buf[i1] + speed_buf[i2]) / 3.0f;
+    if (mean3 > max_gust_3s_ms) {
+      max_gust_3s_ms = mean3;
+    }
+  }
 }
 
 // finalize the block → produce wind_avg, wind_max, wind_dir, then reset accumulators
@@ -307,27 +336,43 @@ static void finalizeBlock(float &wind_avg_ms,
                           float &wind_max_ms,
                           float &wind_dir_deg)
 {
-  if (sample_count > 0) {
-    wind_avg_ms = sum_speed / sample_count;
+  if (buf_count == 0) {
+    wind_avg_ms   = 0.0f;
+    wind_max_ms   = 0.0f;
+    wind_dir_deg  = 0.0f;
   } else {
-    wind_avg_ms = 0.0f;
+    uint16_t n_mean = MEAN_WINDOW_SEC;
+    if (n_mean > buf_count) {
+      n_mean = buf_count;
+    }
+
+    float sum_speed = 0.0f;
+    float sum_x = 0.0f;
+    float sum_y = 0.0f;
+
+    int idx = (int(buf_head) + MAX_SAMPLES - 1) % MAX_SAMPLES;
+    for (uint16_t i = 0; i < n_mean; ++i) {
+      sum_speed += speed_buf[idx];
+      sum_x     += dirx_buf[idx];
+      sum_y     += diry_buf[idx];
+
+      idx = (idx + MAX_SAMPLES - 1) % MAX_SAMPLES;
+    }
+
+    wind_avg_ms = sum_speed / (float)n_mean;
+
+    float avg_rad = atan2f(sum_y, sum_x);
+    float avg_deg = avg_rad * RAD_TO_DEG;
+    if (avg_deg < 0.0f) avg_deg += 360.0f;
+    wind_dir_deg = avg_deg;
+
+    wind_max_ms = max_gust_3s_ms;
   }
 
-  wind_max_ms = max_gust_1s;
-
-  float avg_rad = atan2f(sum_dir_y, sum_dir_x);
-  float avg_deg = avg_rad * RAD_TO_DEG;
-  if (avg_deg < 0.0f) {
-    avg_deg += 360.0f;
-  }
-  wind_dir_deg = avg_deg;
-
-  // reset for next block
-  sample_count = 0;
-  sum_speed    = 0.0f;
-  max_gust_1s  = 0.0f;
-  sum_dir_x    = 0.0f;
-  sum_dir_y    = 0.0f;
+  // Reset gust + buffer state for the next 5-minute block
+  buf_count       = 0;
+  buf_head        = 0;
+  max_gust_3s_ms  = 0.0f;
 }
 
 // timing state
@@ -384,8 +429,8 @@ void setup() {
        (int)USE_WINDSONIC, (unsigned)BLOCK_SECONDS);
 
   unsigned long t0 = millis();
-  next_sample_ms = t0 + 1000UL;
-  next_block_ms  = t0 + (uint32_t)BLOCK_SECONDS * 1000UL;
+  next_sample_ms = t0 + (uint32_t)SAMPLE_PERIOD_SEC * 1000UL;
+  next_block_ms  = t0 + (uint32_t)POST_PERIOD_SEC * 1000UL;
 }
 
 // ========== LOOP ==========
@@ -399,7 +444,7 @@ void loop() {
 
   // 1 Hz sampler (absolute schedule to avoid drift)
   while ((int32_t)(now - next_sample_ms) >= 0) {
-    next_sample_ms += 1000UL;
+    next_sample_ms += (uint32_t)SAMPLE_PERIOD_SEC * 1000UL;
     seconds_in_block++;
 
     float spd_ms, dir_deg;
@@ -413,9 +458,9 @@ void loop() {
   // end of block?
   if ((int32_t)(now - next_block_ms) >= 0) {
     seconds_in_block = 0;
-    next_block_ms += (uint32_t)BLOCK_SECONDS * 1000UL;
+    next_block_ms += (uint32_t)POST_PERIOD_SEC * 1000UL;
     while ((int32_t)(now - next_block_ms) >= 0) {
-      next_block_ms += (uint32_t)BLOCK_SECONDS * 1000UL;
+      next_block_ms += (uint32_t)POST_PERIOD_SEC * 1000UL;
     }
 
     // finalize the rolling 2-min-style block
