@@ -80,7 +80,7 @@ static void connectWiFi(uint32_t maxWaitMs = 15000) {
   // List of networks to try, in order of preference
   const char* SSIDS[] = {
     "Hapenny",
-    "Spanky’s House",
+    "Spankys House",
     "Jaysphone",
   };
   const char* PASSES[] = {
