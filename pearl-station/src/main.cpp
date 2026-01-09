@@ -63,7 +63,7 @@ static uint16_t crc16_ccitt(const uint8_t* data, size_t len, uint16_t crc = 0xFF
 // --- WindSonic configuration ---
 #define USE_WINDSONIC     1          // 1 = live sensor, 0 = test generator
 #define WINDSONIC_BAUD    4800
-#define WIND_RX_PIN       19        // converter TXD -> this pin
+#define WIND_RX_PIN       19       // converter TXD -> this pin
 #define WIND_TX_PIN       -1         // not sending to sensor
 
 // Timing knobs (Field vs Lab)
