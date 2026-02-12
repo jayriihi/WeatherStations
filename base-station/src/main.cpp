@@ -33,9 +33,12 @@
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include <LittleFS.h>
 #include <time.h>
 #include <ctype.h>
 #include <string.h>
+#include <limits.h>
+#include <vector>
 #include "Config.h"
 
 #ifdef HAS_DISPLAY
@@ -163,6 +166,583 @@ static const uint32_t INFLIGHT_GUARD_MS = 5000UL;
 static int32_t  g_lastCntAccepted  = -1;
 static uint32_t g_drop_total       = 0;
 static uint32_t g_delivered_total  = 0;
+static int32_t  g_latestCntReceived = -1;
+
+// Local buffering (A/B rollover)
+static const char* BUF_A_PATH = "/buffer_A.log";
+static const char* BUF_B_PATH = "/buffer_B.log";
+static const char* BUF_STATE_PATH = "/buffer_state.json";
+#ifdef LAB_MODE
+static const size_t BUF_MAX_BYTES = 8UL * 1024UL;
+#else
+static const size_t BUF_MAX_BYTES = 256UL * 1024UL;
+#endif
+
+static bool g_bufferEnabled = false;
+static char g_activeBuf = 'A';
+static int32_t g_lastUploadedCnt = -1;
+static String g_serialCmdLine;
+
+static void resetRadioForRx();
+
+static const char* activeBufferPath() {
+  return (g_activeBuf == 'B') ? BUF_B_PATH : BUF_A_PATH;
+}
+
+static const char* otherBufferPath() {
+  return (g_activeBuf == 'B') ? BUF_A_PATH : BUF_B_PATH;
+}
+
+static bool parseCntFromLine(const String& line, int32_t& outCnt) {
+  StaticJsonDocument<256> doc;
+  DeserializationError err = deserializeJson(doc, line);
+  if (err || !doc["cnt"].is<int32_t>()) return false;
+  outCnt = doc["cnt"].as<int32_t>();
+  return true;
+}
+
+static size_t fileSizeOf(const char* path) {
+  File f = LittleFS.open(path, "r");
+  if (!f) return 0;
+  size_t n = (size_t)f.size();
+  f.close();
+  return n;
+}
+
+static int32_t scanMaxCnt(const char* path) {
+  File f = LittleFS.open(path, "r");
+  if (!f) return -1;
+  int32_t maxCnt = -1;
+  while (f.available()) {
+    String line = f.readStringUntil('\n');
+    int32_t cnt = -1;
+    if (parseCntFromLine(line, cnt) && cnt > maxCnt) maxCnt = cnt;
+  }
+  f.close();
+  return maxCnt;
+}
+
+static bool saveState() {
+  if (!g_bufferEnabled) return false;
+  StaticJsonDocument<96> doc;
+  doc["active"] = (g_activeBuf == 'B') ? "B" : "A";
+  doc["last_uploaded_cnt"] = g_lastUploadedCnt;
+
+  File f = LittleFS.open(BUF_STATE_PATH, "w");
+  if (!f) {
+    Serial.println("BUFFER: saveState open failed");
+    return false;
+  }
+  serializeJson(doc, f);
+  f.close();
+  return true;
+}
+
+static bool loadState() {
+  if (!g_bufferEnabled) return false;
+  if (!LittleFS.exists(BUF_STATE_PATH)) return false;
+  File f = LittleFS.open(BUF_STATE_PATH, "r");
+  if (!f) return false;
+
+  StaticJsonDocument<128> doc;
+  DeserializationError err = deserializeJson(doc, f);
+  f.close();
+  if (err) return false;
+
+  const char* active = doc["active"] | "";
+  if (active[0] != 'A' && active[0] != 'B') return false;
+
+  g_activeBuf = active[0];
+  g_lastUploadedCnt = doc["last_uploaded_cnt"] | -1;
+  return true;
+}
+
+static void initBufferState() {
+  if (!g_bufferEnabled) return;
+  if (loadState()) {
+    Serial.printf("BUFFER: state loaded active=%c last_uploaded_cnt=%ld\n",
+                  g_activeBuf, (long)g_lastUploadedCnt);
+  } else {
+    int32_t maxA = scanMaxCnt(BUF_A_PATH);
+    int32_t maxB = scanMaxCnt(BUF_B_PATH);
+    if (maxA < 0 && maxB < 0) {
+      g_activeBuf = 'A';
+    } else {
+      g_activeBuf = (maxB > maxA) ? 'B' : 'A';
+    }
+    g_lastUploadedCnt = -1;
+    saveState();
+    Serial.printf("BUFFER: state recovered active=%c (maxA=%ld maxB=%ld)\n",
+                  g_activeBuf, (long)maxA, (long)maxB);
+  }
+
+  if (!LittleFS.exists(BUF_A_PATH)) {
+    File fa = LittleFS.open(BUF_A_PATH, "w");
+    if (fa) fa.close();
+  }
+  if (!LittleFS.exists(BUF_B_PATH)) {
+    File fb = LittleFS.open(BUF_B_PATH, "w");
+    if (fb) fb.close();
+  }
+
+  File f = LittleFS.open(activeBufferPath(), "a");
+  if (f) f.close();
+}
+
+static void setLastUploadedCnt(int32_t cnt) {
+  if (!g_bufferEnabled || cnt < 0) return;
+  if (g_lastUploadedCnt == cnt) return;
+  g_lastUploadedCnt = cnt;
+  saveState();
+}
+
+static bool appendBufferedLine(const String& line) {
+  if (!g_bufferEnabled) return false;
+
+  const char* activePath = activeBufferPath();
+  File f = LittleFS.open(activePath, "a");
+  if (!f) {
+    Serial.printf("BUFFER: append open failed (%s)\n", activePath);
+    return false;
+  }
+
+  size_t w1 = f.print(line);
+  size_t w2 = f.print('\n');
+  size_t newSize = (size_t)f.size();
+  f.close();
+  if (w1 != line.length() || w2 != 1) {
+    Serial.printf("BUFFER: short write (%s)\n", activePath);
+  }
+
+  if (newSize > BUF_MAX_BYTES) {
+    char nextBuf = (g_activeBuf == 'A') ? 'B' : 'A';
+    const char* nextPath = (nextBuf == 'A') ? BUF_A_PATH : BUF_B_PATH;
+    File clearFile = LittleFS.open(nextPath, "w");
+    if (!clearFile) {
+      Serial.printf("BUFFER: rollover clear failed (%s)\n", nextPath);
+      return true;
+    }
+    clearFile.close();
+
+    g_activeBuf = nextBuf;
+    saveState();
+    Serial.printf("BUFFER: rollover -> %c (cleared %s)\n", g_activeBuf, nextPath);
+  }
+
+  return true;
+}
+
+static void appendBufferRecord(float wind_avg,
+                               float wind_max,
+                               int wind_dir,
+                               int32_t cnt,
+                               float batt_v,
+                               float rssi_f,
+                               float snr_f,
+                               uint32_t uptime_s) {
+  if (!g_bufferEnabled) return;
+
+  StaticJsonDocument<256> doc;
+  time_t now = time(nullptr);
+  if (now > 1600000000) {
+    doc["ts"] = (uint32_t)now;
+  } else {
+    doc["ts"] = nullptr;
+  }
+  doc["spd"] = wind_avg;
+  doc["max"] = wind_max;
+  doc["dir"] = wind_dir;
+  doc["cnt"] = cnt;
+  doc["bat"] = batt_v;
+  doc["rssi"] = rssi_f;
+  doc["snr"] = snr_f;
+  doc["crc_ok"] = g_crc_ok;
+  doc["crc_fail"] = g_crc_fail;
+  doc["rf_dup"] = g_rf_dup;
+  doc["upt"] = uptime_s;
+
+  String line;
+  line.reserve(196);
+  serializeJson(doc, line);
+  appendBufferedLine(line);
+}
+
+static void dumpFile(const char* path, int32_t startCnt, int32_t endCnt) {
+  File f = LittleFS.open(path, "r");
+  if (!f) {
+    Serial.printf("DUMP: cannot open %s\n", path);
+    return;
+  }
+
+  bool havePending = false;
+  int32_t pendingCnt = -1;
+  String pendingLine;
+
+  while (f.available()) {
+    String line = f.readStringUntil('\n');
+    int32_t cnt = -1;
+    if (!parseCntFromLine(line, cnt)) continue;
+    if (cnt < startCnt || cnt > endCnt) continue;
+
+    if (!havePending) {
+      pendingCnt = cnt;
+      pendingLine = line;
+      havePending = true;
+      continue;
+    }
+    if (cnt == pendingCnt) {
+      pendingLine = line;  // keep the last duplicate cnt
+      continue;
+    }
+
+    Serial.println(pendingLine);
+    pendingCnt = cnt;
+    pendingLine = line;
+  }
+  if (havePending) Serial.println(pendingLine);
+  f.close();
+}
+
+static void selectBufferOrder(const char*& older, const char*& newer) {
+  older = BUF_A_PATH;
+  newer = BUF_B_PATH;
+
+  int32_t maxA = scanMaxCnt(BUF_A_PATH);
+  int32_t maxB = scanMaxCnt(BUF_B_PATH);
+  if (maxA < 0 && maxB < 0) {
+    older = nullptr;
+    newer = nullptr;
+  } else if (maxA < 0) {
+    older = BUF_B_PATH;
+    newer = BUF_B_PATH;
+  } else if (maxB < 0) {
+    older = BUF_A_PATH;
+    newer = BUF_A_PATH;
+  } else if (maxA > maxB) {
+    older = BUF_B_PATH;
+    newer = BUF_A_PATH;
+  }
+}
+
+static void dumpRecordsInOrder(int32_t startCnt, int32_t endCnt) {
+  if (!g_bufferEnabled) {
+    Serial.println("DUMP: buffering disabled");
+    return;
+  }
+
+  const char* older = nullptr;
+  const char* newer = nullptr;
+  selectBufferOrder(older, newer);
+  if (!older || !newer) {
+    Serial.println("DUMP: no records");
+    return;
+  }
+
+  Serial.printf("DUMP: older=%s newer=%s\n", older, newer);
+  dumpFile(older, startCnt, endCnt);
+  if (older != newer) dumpFile(newer, startCnt, endCnt);
+}
+
+static bool parseCsvRecordLine(const String& line, StaticJsonDocument<256>& doc, int32_t& cntOut) {
+  DeserializationError err = deserializeJson(doc, line);
+  if (err || !doc["cnt"].is<int32_t>()) return false;
+  cntOut = doc["cnt"].as<int32_t>();
+  return true;
+}
+
+static bool buildCsvRowFromJson(const String& line, String& rowOut) {
+  StaticJsonDocument<256> doc;
+  int32_t cnt = -1;
+  if (!parseCsvRecordLine(line, doc, cnt)) return false;
+
+  rowOut = "";
+  rowOut.reserve(128);
+  if (doc["ts"].isNull()) {
+    rowOut += "";
+  } else if (doc["ts"].is<const char*>()) {
+    rowOut += doc["ts"].as<const char*>();
+  } else {
+    rowOut += String((long)doc["ts"].as<int32_t>());
+  }
+  rowOut += ",";
+  rowOut += String(doc["spd"] | 0.0f, 2);
+  rowOut += ",";
+  rowOut += String(doc["max"] | 0.0f, 2);
+  rowOut += ",";
+  rowOut += String(doc["dir"] | 0);
+  rowOut += ",";
+  rowOut += String((long)cnt);
+  rowOut += ",";
+  rowOut += String(doc["bat"] | 0.0f, 2);
+  rowOut += ",";
+  rowOut += String(doc["rssi"] | 0.0f, 2);
+  rowOut += ",";
+  rowOut += String(doc["snr"] | 0.0f, 2);
+  rowOut += ",";
+  rowOut += String((unsigned long)(doc["crc_ok"] | 0UL));
+  rowOut += ",";
+  rowOut += String((unsigned long)(doc["crc_fail"] | 0UL));
+  rowOut += ",";
+  rowOut += String((unsigned long)(doc["rf_dup"] | 0UL));
+  rowOut += ",";
+  rowOut += String((unsigned long)(doc["upt"] | 0UL));
+  return true;
+}
+
+static void flushPendingCsv(std::vector<String>& rows, bool& havePending, String& pendingLine) {
+  if (!havePending) return;
+  String csvRow;
+  if (buildCsvRowFromJson(pendingLine, csvRow)) rows.push_back(csvRow);
+  havePending = false;
+  pendingLine = "";
+}
+
+static void collectFileCsv(const char* path,
+                           int32_t startCnt,
+                           int32_t endCnt,
+                           std::vector<String>& rows,
+                           bool& havePending,
+                           int32_t& pendingCnt,
+                           String& pendingLine) {
+  File f = LittleFS.open(path, "r");
+  if (!f) {
+    Serial.printf("DUMP CSV: cannot open %s\n", path);
+    return;
+  }
+
+  while (f.available()) {
+    String line = f.readStringUntil('\n');
+    StaticJsonDocument<256> doc;
+    int32_t cnt = -1;
+    if (!parseCsvRecordLine(line, doc, cnt)) continue;
+    if (cnt < startCnt || cnt > endCnt) continue;
+
+    if (!havePending) {
+      pendingCnt = cnt;
+      pendingLine = line;
+      havePending = true;
+      continue;
+    }
+    if (cnt == pendingCnt) {
+      pendingLine = line;  // keep the last duplicate cnt
+      continue;
+    }
+
+    flushPendingCsv(rows, havePending, pendingLine);
+    pendingCnt = cnt;
+    pendingLine = line;
+    havePending = true;
+  }
+  f.close();
+}
+
+static void dumpCsvInOrder(int32_t startCnt, int32_t endCnt) {
+  if (!g_bufferEnabled) {
+    Serial.println("DUMP: buffering disabled");
+    return;
+  }
+
+  const char* older = nullptr;
+  const char* newer = nullptr;
+  selectBufferOrder(older, newer);
+  if (!older || !newer) {
+    Serial.println("DUMP: no records");
+    return;
+  }
+
+  std::vector<String> rows;
+  bool havePending = false;
+  int32_t pendingCnt = -1;
+  String pendingLine;
+
+  collectFileCsv(older, startCnt, endCnt, rows, havePending, pendingCnt, pendingLine);
+  if (older != newer) collectFileCsv(newer, startCnt, endCnt, rows, havePending, pendingCnt, pendingLine);
+  flushPendingCsv(rows, havePending, pendingLine);
+
+  Serial.println("ts,spd,max,dir,cnt,bat,rssi,snr,crc_ok,crc_fail,rf_dup,upt");
+  for (int i = (int)rows.size() - 1; i >= 0; --i) {
+    Serial.println(rows[(size_t)i]);
+  }
+}
+
+static void printBufferStatus() {
+  if (!g_bufferEnabled) {
+    Serial.println("BUFFER: enabled=no");
+    return;
+  }
+
+  int32_t maxA = scanMaxCnt(BUF_A_PATH);
+  int32_t maxB = scanMaxCnt(BUF_B_PATH);
+  size_t sizeA = fileSizeOf(BUF_A_PATH);
+  size_t sizeB = fileSizeOf(BUF_B_PATH);
+  Serial.println("BUFFER: enabled=yes");
+  Serial.printf("BUFFER: active=%c path=%s\n", g_activeBuf, activeBufferPath());
+  Serial.printf("BUFFER: size_A=%u size_B=%u limit=%u\n",
+                (unsigned)sizeA, (unsigned)sizeB, (unsigned)BUF_MAX_BYTES);
+  Serial.printf("BUFFER: max_cnt_A=%ld max_cnt_B=%ld\n", (long)maxA, (long)maxB);
+  Serial.printf("BUFFER: last_uploaded_cnt=%ld latest_cnt_received=%ld\n",
+                (long)g_lastUploadedCnt, (long)g_latestCntReceived);
+}
+
+static void runDumpAllCommand() {
+  Serial.println("DUMP ALL: begin");
+  dumpRecordsInOrder(INT32_MIN, INT32_MAX);
+  Serial.println("DUMP ALL: end");
+}
+
+static void runDumpCntCommand(int32_t startCnt, int32_t endCnt) {
+  Serial.printf("DUMP CNT: begin [%ld..%ld]\n", (long)startCnt, (long)endCnt);
+  dumpRecordsInOrder(startCnt, endCnt);
+  Serial.println("DUMP CNT: end");
+}
+
+static void runDumpCsvAll() {
+  Serial.println("DUMP CSV: begin");
+  dumpCsvInOrder(INT32_MIN, INT32_MAX);
+  Serial.println("DUMP CSV: end");
+}
+
+static void runDumpCsvRange(int32_t startCnt, int32_t endCnt) {
+  Serial.printf("DUMP CSV: begin [%ld..%ld]\n", (long)startCnt, (long)endCnt);
+  dumpCsvInOrder(startCnt, endCnt);
+  Serial.println("DUMP CSV: end");
+}
+
+static void printHelp() {
+  Serial.println("Commands:");
+  Serial.println("  STATUS");
+  Serial.println("  DUMP ALL");
+  Serial.println("  DUMP CNT <start> <end>");
+  Serial.println("  DUMP CSV");
+  Serial.println("  DUMP CSV <start> <end>");
+}
+
+#ifdef LAB_MODE
+static void runInjectCommand(int32_t count) {
+  if (!g_bufferEnabled) {
+    Serial.println("INJECT: buffering disabled");
+    return;
+  }
+  if (count <= 0) {
+    Serial.println("INJECT: n must be > 0");
+    return;
+  }
+
+  int32_t maxA = scanMaxCnt(BUF_A_PATH);
+  int32_t maxB = scanMaxCnt(BUF_B_PATH);
+  int32_t cnt = ((maxA > maxB) ? maxA : maxB) + 1;
+  if (cnt < 0) cnt = 0;
+
+  for (int32_t i = 0; i < count; ++i) {
+    float wind_avg = 5.0f + (float)((i % 25) * 0.4f);
+    float wind_max = wind_avg + 2.5f;
+    int wind_dir = (int)((cnt * 7) % 360);
+    float batt_v = 4.10f - (float)(i % 10) * 0.01f;
+    float rssi_f = -95.0f + (float)(i % 9);
+    float snr_f = -2.0f + (float)(i % 6) * 0.5f;
+    uint32_t uptime_s = (millis() - g_start_ms) / 1000UL;
+    appendBufferRecord(wind_avg, wind_max, wind_dir, cnt, batt_v, rssi_f, snr_f, uptime_s);
+    g_latestCntReceived = cnt;
+    cnt++;
+  }
+
+  Serial.printf("INJECT: wrote %ld records\n", (long)count);
+}
+#endif
+
+static void handleSerialCommand(const String& line) {
+  String cmd = line;
+  cmd.trim();
+  if (cmd.length() == 0) return;
+
+  String u = cmd;
+  u.toUpperCase();
+
+  if (u == "HELP" || u == "?") {
+    printHelp();
+    return;
+  }
+  if (u == "STATUS") {
+    printBufferStatus();
+    return;
+  }
+  if (u == "DUMP ALL" || u == "DUMPALL") {
+    runDumpAllCommand();
+    return;
+  }
+  if (u == "DUMP CSV" || u == "DUMPCSV") {
+    runDumpCsvAll();
+    return;
+  }
+  if (u.startsWith("DUMP CSV ") || u.startsWith("DUMPCSV ")) {
+    long startCnt = 0;
+    long endCnt = 0;
+    int matched = 0;
+    if (u.startsWith("DUMP CSV ")) {
+      matched = sscanf(u.c_str(), "DUMP CSV %ld %ld", &startCnt, &endCnt);
+    } else {
+      matched = sscanf(u.c_str(), "DUMPCSV %ld %ld", &startCnt, &endCnt);
+    }
+    if (matched != 2) {
+      Serial.println("CMD: usage DUMP CSV <start> <end>");
+      return;
+    }
+    if (startCnt > endCnt) {
+      Serial.println("CMD: start must be <= end");
+      return;
+    }
+    runDumpCsvRange((int32_t)startCnt, (int32_t)endCnt);
+    return;
+  }
+  if (u.startsWith("DUMP CNT ") || u.startsWith("DUMPCNT ")) {
+    long startCnt = 0;
+    long endCnt = 0;
+    int matched = 0;
+    if (u.startsWith("DUMP CNT ")) {
+      matched = sscanf(u.c_str(), "DUMP CNT %ld %ld", &startCnt, &endCnt);
+    } else {
+      matched = sscanf(u.c_str(), "DUMPCNT %ld %ld", &startCnt, &endCnt);
+    }
+    if (matched != 2) {
+      Serial.println("CMD: usage DUMP CNT <start> <end>");
+      return;
+    }
+    if (startCnt > endCnt) {
+      Serial.println("CMD: start must be <= end");
+      return;
+    }
+    runDumpCntCommand((int32_t)startCnt, (int32_t)endCnt);
+    return;
+  }
+#ifdef LAB_MODE
+  if (u.startsWith("INJECT ")) {
+    long n = 0;
+    if (sscanf(u.c_str(), "INJECT %ld", &n) != 1) {
+      Serial.println("CMD: usage INJECT <n>");
+      return;
+    }
+    runInjectCommand((int32_t)n);
+    return;
+  }
+#endif
+
+  Serial.printf("CMD: unknown '%s'\n", cmd.c_str());
+}
+
+static void pollSerialCommands() {
+  while (Serial.available() > 0) {
+    char c = (char)Serial.read();
+    if (c == '\r') continue;
+    Serial.write(c);
+    if (c == '\n') {
+      Serial.println();
+      handleSerialCommand(g_serialCmdLine);
+      g_serialCmdLine = "";
+    } else if (g_serialCmdLine.length() < 160) {
+      g_serialCmdLine += c;
+    }
+  }
+}
 
 
 // TIME
@@ -238,7 +818,11 @@ static int postOnce(const String& body) {
 
 
 // OPTIONAL: TEST POSTER
+#ifdef LAB_MODE
 static const bool ENABLE_TEST_POSTS = false;
+#else
+static const bool ENABLE_TEST_POSTS = false;
+#endif
 static uint32_t    g_lastTestMinute = 0;
 static uint32_t    g_testCnt        = 0;
 
@@ -340,6 +924,22 @@ void setup() {
   initTimeUTC();
   g_start_ms = millis();
 
+  Serial.println("LittleFS: mounting...");
+  #ifdef LAB_MODE
+  bool ok = LittleFS.begin(false);
+  #else
+  bool ok = LittleFS.begin(false);
+  #endif
+  if (ok) {
+    g_bufferEnabled = true;
+    Serial.println("LittleFS: mounted");
+    initBufferState();
+    g_lastCntPosted = g_lastUploadedCnt;
+  } else {
+    g_bufferEnabled = false;
+    Serial.println("LittleFS: mount failed, buffering disabled");
+  }
+
   SPI.begin(PIN_SCK, PIN_MISO, PIN_MOSI, PIN_NSS);
   modPtr = new Module(PIN_NSS, PIN_DIO1, PIN_RST, PIN_BUSY);
   lora   = new SX1262(modPtr);
@@ -372,6 +972,7 @@ void setup() {
       // LOOP
     void loop() {
       uint32_t now = millis();
+      pollSerialCommands();
 
 #ifdef HAS_DISPLAY
       DisplayUI::loop();
@@ -502,6 +1103,7 @@ void setup() {
       float rssi_f = lora->getRSSI();
       float snr_f  = lora->getSNR();
       int32_t cnt  = (int32_t)cntJ;
+      if (cnt >= 0) g_latestCntReceived = cnt;
 
       // === EARLY ACK (send immediately after valid parse) ===
       if (cnt >= 0) {
@@ -540,6 +1142,8 @@ void setup() {
 
       String body(buf);
       Serial.printf("BODY (clean): %s\n", body.c_str());
+
+      appendBufferRecord(wind_avg, wind_max, wind_dir, cnt, batt_v, rssi_f, snr_f, uptime_s);
 
       // in-flight / dedupe / rate limit
       if (cnt >= 0 && g_inflightCnt == cnt && (millis() - g_inflightMs) < INFLIGHT_GUARD_MS) {
@@ -592,7 +1196,10 @@ void setup() {
       if (code == 200 || code == 201 || code == 400) {
         g_lastBody   = body;
         g_lastPostMs = millis();
-        if (cnt >= 0) g_lastCntPosted = cnt;
+        if (cnt >= 0) {
+          g_lastCntPosted = cnt;
+          setLastUploadedCnt(cnt);
+        }
         g_delivered_total++;     // <-- count delivered rows for rate calc
 #ifdef HAS_DISPLAY
         DisplayUI::notifyPost(true);

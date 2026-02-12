@@ -61,7 +61,7 @@ static uint16_t crc16_ccitt(const uint8_t* data, size_t len, uint16_t crc = 0xFF
 
 // ====== CONFIG ======
 // --- WindSonic configuration ---
-#define USE_WINDSONIC     1          // 1 = live sensor, 0 = test generator
+#define USE_WINDSONIC     0          // 1 = live sensor, 0 = test generator
 #define WINDSONIC_BAUD    4800
 #define WIND_RX_PIN       19       // converter TXD -> this pin
 #define WIND_TX_PIN       -1         // not sending to sensor
@@ -82,7 +82,7 @@ static const uint32_t RETRY_BACKOFF_RANGE = 300;    // adds 0..299 ms
 #ifdef ENV_FIELD
 static const uint16_t BLOCK_SECONDS = 300;
 #else
-static const uint16_t BLOCK_SECONDS = 30;
+static const uint16_t BLOCK_SECONDS = 300;
 #endif
 
 // Sampling + averaging windows (seconds)
