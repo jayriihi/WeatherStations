@@ -888,6 +888,7 @@ void setup() {
   delay(300);
 
 #ifdef ENV_LAB
+
   Serial.println("[ENV] LAB mode");
 #elif defined(ENV_FIELD)
   Serial.println("[ENV] FIELD mode");
@@ -1228,5 +1229,8 @@ void setup() {
 
 
 // handy:
-// pio run -t upload --upload-port /dev/cu.usbserial-3
-// pio device monitor -p /dev/cu.usbserial-3 -b 115200
+// pio run -e base_lab -t upload --upload-port /dev/cu.usbserial-0003
+// pio device monitor -p /dev/cu.usbserial-0003 -b 115200
+
+// pio run -e base_field -t upload --upload-port /dev/cu.usbserial-0003
+// pio device monitor -p /dev/cu.usbserial-0003 -b 115200

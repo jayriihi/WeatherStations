@@ -82,7 +82,7 @@ static const uint32_t RETRY_BACKOFF_RANGE = 300;    // adds 0..299 ms
 #ifdef ENV_FIELD
 static const uint16_t BLOCK_SECONDS = 300;
 #else
-static const uint16_t BLOCK_SECONDS = 300;
+static const uint16_t BLOCK_SECONDS = 60;
 #endif
 
 // Sampling + averaging windows (seconds)
@@ -709,5 +709,9 @@ bool readWindsonicLine(float& spd_ms, float& gust_ms, float& dir_deg) {
 }
 
 // handy:
-// pio run -t upload --upload-port /dev/cu.usbserial-0001
-// pio device monitor -p /dev/cu.usbserial-0001 -b 115200
+
+// pio run -e pearl_field_v4 -t upload --upload-port /dev/cu.usbmodem10BDA35B93581
+
+// pio run -e pearl_lab_v4 -t upload --upload-port /dev/cu.usbmodem10BDA35B93581
+
+// pio device monitor -p /dev/cu.usbmodem10BDA35B93581 -b 115200
