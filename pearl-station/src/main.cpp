@@ -710,8 +710,8 @@ bool readWindsonicLine(float& spd_ms, float& gust_ms, float& dir_deg) {
 
 // handy:
 
-// pio run -e pearl_field_v4 -t upload --upload-port /dev/cu.usbmodem10BDA35B93581
+// pio run -e pearl_field_v4 -t upload --upload-port /dev/cu.usbmodem1201
 
-// pio run -e pearl_lab_v4 -t upload --upload-port /dev/cu.usbmodem10BDA35B93581
+// pio run -e pearl_lab_v4 -t upload --upload-port /dev/cu.usbmodem1201
 
-// pio device monitor -p /dev/cu.usbmodem10BDA35B93581 -b 115200
+// pio device monitor -p /dev/cu.usbmodem1201 -b 115200
