@@ -1229,8 +1229,9 @@ void setup() {
 
 
 // handy:
-// pio run -e base_lab -t upload --upload-port /dev/cu.usbserial-0003
-// pio device monitor -p /dev/cu.usbserial-0003 -b 115200
 
-// pio run -e base_field -t upload --upload-port /dev/cu.usbserial-0003
-// pio device monitor -p /dev/cu.usbserial-0003 -b 115200
+// pio run -e base_field_v4 -t upload --upload-port /dev/cu.usbmodem1301
+
+// pio run -e base_lab_v4 -t upload --upload-port /dev/cu.usbmodem1301
+
+// pio device monitor -p /dev/cu.usbmodem1301 -b 115200
