@@ -927,9 +927,9 @@ void setup() {
 
   Serial.println("LittleFS: mounting...");
   #ifdef LAB_MODE
-  bool ok = LittleFS.begin(false);
+  bool ok = LittleFS.begin(true);
   #else
-  bool ok = LittleFS.begin(false);
+  bool ok = LittleFS.begin(true);
   #endif
   if (ok) {
     g_bufferEnabled = true;
