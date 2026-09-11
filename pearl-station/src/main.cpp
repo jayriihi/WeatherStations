@@ -139,22 +139,21 @@ SX1262 *lora = nullptr;
 // ADC pin used for the divider: GPIO2 on the Heltec
 #define PIN_BATTERY_SENSE 2
 
-// ADC reference and resolution
-static const float ADC_REF_V = 3.3f;
-static const float ADC_MAX_COUNTS = 4095.0f;
-
 // Divider resistor values (ohms)
-static const float R1_BAT = 220000.0f; // battery -> node
-static const float R2_BAT = 47000.0f;  // node -> GND
-static const float R3_BAT = 100.0f;    // node -> GND (small load / RC tail)
+static const float R1_BAT = 4700.0f; // battery -> node
+static const float R2_BAT = 1000.0f;  // node -> GND
+static const float R3_BAT = 100.0f;   // node -> ADC (series protection)
 
 // How many samples to average per reading
 static const int BATT_SAMPLES = 16;
 
 // Precompute gain from node voltage to battery voltage:
-// Vbat = Vnode * (R1 + R2 + R3) / (R2 + R3)
+// Vbat = Vnode * (R1 + R2) / R2
 static const float BAT_DIVIDER_GAIN =
     (R1_BAT + R2_BAT) / R2_BAT;
+
+// Final calibration against measured 12V rail
+static const float BATT_CAL = 0.977f;
 
 // Simple LiFePO4 status thresholds (12.8V nominal 4S)
 static const float BATT_OK_MIN = 13.1f;   // >= OK
@@ -198,12 +197,9 @@ float readBatteryVolts()
   }
 
   float v_node = ((float)mv_acc / BATT_SAMPLES) / 1000.0f;
+  float v_batt = v_node * BAT_DIVIDER_GAIN * BATT_CAL;
 
-  // Calibration against measured 12V rail:
-  // multimeter = 12.19V, uncalibrated firmware = 15.07V
-  static const float BATT_CAL = 0.768f;
-
-  return v_node * BAT_DIVIDER_GAIN * BATT_CAL;
+  return v_batt;
 }
 
 // static void getSample(float& spd_ms, float& dir_deg);
