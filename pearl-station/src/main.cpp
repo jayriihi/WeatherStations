@@ -32,6 +32,8 @@
 #include <math.h>
 #include <string.h>
 #include "Config.h"
+#include <Wire.h>
+#include "SSD1306Wire.h"
 
 // Logging helpers: quiet in FIELD, verbose in LAB
 #ifdef ENV_FIELD
@@ -86,6 +88,14 @@ static uint16_t crc16_ccitt(const uint8_t *data, size_t len, uint16_t crc = 0xFF
 #define WIND_RX_PIN 19 // converter TXD -> this pin
 #define WIND_TX_PIN -1 // not sending to sensor
 
+// Heltec V4 OLED
+static const int OLED_SDA = 17;
+static const int OLED_SCL = 18;
+static const int OLED_RST = 21;
+static const int OLED_VEXT = 36;
+
+SSD1306Wire display(0x3c, OLED_SDA, OLED_SCL);
+
 // Timing knobs (Field vs Lab)
 #ifdef ENV_FIELD
 static const uint32_t ACK_WAIT_MS = 2500;        // wait for ACK per attempt
@@ -131,6 +141,18 @@ static uint32_t g_lastHeartbeatMs = 0;
 static uint32_t g_heartbeatOffMs = 0;
 static bool g_heartbeatOn = false;
 
+// ---------- DISPLAY STATUS ----------
+static float g_displayBattV = NAN;
+static bool g_windOk = false;
+static uint32_t g_txCount = 0;
+static uint32_t g_ackCount = 0;
+static uint32_t g_lastDisplayUpdateMs = 0;
+
+static const uint32_t DIAG_DISPLAY_MS = 11UL * 60UL * 1000UL;
+static const uint32_t DIAG_REQUIRED_ACKS = 2;
+
+static bool g_displayOff = false;
+
 Module *modPtr = nullptr;
 SX1262 *lora = nullptr;
 
@@ -141,8 +163,8 @@ SX1262 *lora = nullptr;
 
 // Divider resistor values (ohms)
 static const float R1_BAT = 4700.0f; // battery -> node
-static const float R2_BAT = 1000.0f;  // node -> GND
-static const float R3_BAT = 100.0f;   // node -> ADC (series protection)
+static const float R2_BAT = 1000.0f; // node -> GND
+static const float R3_BAT = 100.0f;  // node -> ADC (series protection)
 
 // How many samples to average per reading
 static const int BATT_SAMPLES = 16;
@@ -200,6 +222,93 @@ float readBatteryVolts()
   float v_batt = v_node * BAT_DIVIDER_GAIN * BATT_CAL;
 
   return v_batt;
+}
+
+static bool diagnosticsPassed()
+{
+  // Battery must have a valid reading and must not be in a fault state
+  if (isnan(g_displayBattV))
+    return false;
+
+  const char *battStatus = batteryStatusFromVolts(g_displayBattV);
+
+  if (strcmp(battStatus, "FAIL") == 0 ||
+      strcmp(battStatus, "CRIT") == 0 ||
+      strcmp(battStatus, "UNKNOWN") == 0)
+  {
+    return false;
+  }
+
+  // In LAB/simulator mode, WIND SIM counts as healthy
+#if USE_WINDSONIC
+  if (!g_windOk)
+    return false;
+#endif
+
+  // Require at least two successful ACKs
+  if (g_ackCount < DIAG_REQUIRED_ACKS)
+    return false;
+
+  return true;
+}
+
+// ---------- DIAGNOSTIC DISPLAY ----------
+static void updateDiagnosticDisplay()
+{
+  display.clear();
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.setFont(ArialMT_Plain_10);
+
+  // Header
+  display.drawString(0, 0, "PEARL STATUS");
+
+  char line[32];
+
+  // Battery
+  if (isnan(g_displayBattV))
+  {
+    snprintf(line, sizeof(line), "BAT   WAIT");
+  }
+  else
+  {
+    snprintf(line, sizeof(line), "BAT   %.2fV  %s",
+             g_displayBattV,
+             batteryStatusFromVolts(g_displayBattV));
+  }
+  display.drawString(0, 14, line);
+
+  // WindSonic
+#if USE_WINDSONIC
+  display.drawString(0, 26, g_windOk ? "WIND  OK" : "WIND  WAIT");
+#else
+  display.drawString(0, 26, "WIND  SIM");
+#endif
+
+  // LoRa
+  if (g_txCount == 0)
+  {
+    display.drawString(0, 38, "LORA  WAIT");
+  }
+  else
+  {
+    snprintf(line, sizeof(line), "LORA  ACK %lu/%lu",
+             (unsigned long)g_ackCount,
+             (unsigned long)g_txCount);
+    display.drawString(0, 38, line);
+  }
+
+  // Uptime
+  uint32_t uptimeSec = millis() / 1000UL;
+  uint32_t minutes = uptimeSec / 60UL;
+  uint32_t seconds = uptimeSec % 60UL;
+
+  snprintf(line, sizeof(line), "UP    %02lu:%02lu",
+           (unsigned long)minutes,
+           (unsigned long)seconds);
+
+  display.drawString(0, 50, line);
+
+  display.display();
 }
 
 // static void getSample(float& spd_ms, float& dir_deg);
@@ -458,6 +567,24 @@ void setup()
   Serial.begin(115200);
   delay(300);
 
+  // Power and initialize OLED
+  pinMode(OLED_VEXT, OUTPUT);
+  digitalWrite(OLED_VEXT, LOW); // Vext ON
+  delay(100);
+
+  pinMode(OLED_RST, OUTPUT);
+  digitalWrite(OLED_RST, LOW);
+  delay(20);
+  digitalWrite(OLED_RST, HIGH);
+  delay(20);
+
+  display.init();
+  display.clear();
+  display.setFont(ArialMT_Plain_16);
+  display.setTextAlignment(TEXT_ALIGN_CENTER);
+  display.drawString(64, 22, "PEARL V4");
+  display.display();
+
 #ifdef ENV_LAB
   LOGI("[ENV] LAB mode\n");
 #elif defined(ENV_FIELD)
@@ -539,6 +666,25 @@ void loop()
     g_heartbeatOn = false;
   }
 
+  // Diagnostic display:
+  // - show status during startup
+  // - turn off after 11 minutes if diagnostics have passed
+  // - otherwise keep showing status so a fault remains visible
+  if (!g_displayOff)
+  {
+    if (now >= DIAG_DISPLAY_MS && diagnosticsPassed())
+    {
+      display.clear();
+      display.display();
+      g_displayOff = true;
+    }
+    else if (now - g_lastDisplayUpdateMs >= 1000UL)
+    {
+      g_lastDisplayUpdateMs = now;
+      updateDiagnosticDisplay();
+    }
+  }
+
   // 1 Hz sampler (absolute schedule to avoid drift)
   while ((int32_t)(now - next_sample_ms) >= 0)
   {
@@ -575,6 +721,9 @@ void loop()
         wind_dir_deg,
         vbatt,
         nextCnt()};
+
+    // Update diagnostic display state
+    g_displayBattV = sample.batt_v;
 
     // convert avg + gust to knots for debug sanity
     float wind_avg_kt = sample.wind_avg_ms * 1.94384f;
@@ -625,6 +774,8 @@ void loop()
     bool acked = false;
     String ackStatus;
 
+    g_txCount++;
+
     while (attempt < MAX_TX_ATTEMPTS && !acked)
     {
       attempt++;
@@ -635,6 +786,7 @@ void loop()
       if (waitForAck((uint32_t)sample.cnt, ACK_WAIT_MS, &ackStatus))
       {
         acked = true;
+        g_ackCount++;
         LOGI("PEARL: ACKed with status %s\n", ackStatus.c_str());
         break;
       }
@@ -732,6 +884,7 @@ static void getSample(float &spd_ms, float &dir_deg)
   float gust_dummy = NAN;
   if (readWindsonicLine(spd_ms, gust_dummy, dir_deg))
   {
+    g_windOk = true;
     return;
   }
 // In LAB (or when sensor data is missing), fall back to the simulator to keep
