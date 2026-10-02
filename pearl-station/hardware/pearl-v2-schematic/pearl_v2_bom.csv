@@ -1,0 +1,15 @@
+Reference,Quantity,Description,Value / Part Number,Manufacturer / Source,Supplier / SKU,Validation provenance,Notes
+J1,1,Battery input connector,2-pin; connector MPN not established,,,Final V2 interface,"Pin 1 BATT_RAW_12V; pin 2 GND"
+D1,1,Schottky barrier rectifier,1N5822,Microchip Technology,DigiKey 1N5822MS-ND,Proven retained V1,"3 A; 40 V; anode BATT_RAW_12V; cathode PROTECTED_12V"
+D2,1,Unidirectional TVS diode,P6KE16A,Littelfuse,DigiKey P6KE16ALFCT-ND,Proven retained V1,"600 W; 13.6 V stand-off; cathode PROTECTED_12V; anode GND"
+U1,1,Non-isolated DC-DC switching regulator,OKI-78SR-5/1.5-W36H-C,Murata Power Solutions,DigiKey 811-2692-ND,Proven V2 breadboard,"Pin 1 +VIN; pin 2 common; pin 3 +5 V; 7-36 V input; 5 V 1.5 A output"
+R1,1,Battery-divider upper resistor,4.7 kΩ,,,Proven V2 breadboard,Tolerance and wattage not established
+R2,1,Battery-divider lower resistor,1 kΩ,,,Proven V2 breadboard,Tolerance and wattage not established
+R3,1,ADC series resistor,100 Ω,,,Proven V2 breadboard,Tolerance and wattage not established
+C1,1,Polarized radial electrolytic capacitor,1 µF,,,Proven V2 breadboard,"Black electrolytic; positive to DIVIDER_NODE; negative to GND; voltage rating not established"
+C2,1,Ceramic disc capacitor,0.1 µF,,,Proven V2 breadboard,"Orange ceramic disc; ADC_NODE to GND; voltage rating not established"
+U2,1,Galvanically isolated TTL-to-RS422 converter module,TTL TO RS422 (B),Waveshare,Waveshare SKU 23652,Proven deployed V1 / retained final V2,"Only receiver path used; internal 120 Ω jumper state not established"
+U3,1,Wi-Fi / LoRa controller module,"WiFi LoRa 32 V4, 863-928 MHz family; exact orderable variant not established",Heltec Automation,,Proven V2 breadboard,"ESP32-S3R2; SX1262; OLED; onboard USB-C and diagnostic LED; physical WindSonic RX jumper is GPIO7/J3.18; current source conflict: WIND_RX_PIN=19"
+J2,1,Wind sensor and 9-way circular interface,Gill WindSonic 75,Gill Instruments,,Proven Pearl sensor,"Used pins: 1 signal GND; 2 supply+; 3 supply-; 4 TXD+; 5 TXD-; pins 6-9 unused by Pearl"
+J3,1,LoRa RF interconnect,IPEX1.0-to-SMA bulkhead pigtail; exact MPN not established,,,Proven retained V1,"Between Heltec LoRa IPEX1.0 port and external antenna connection"
+AE1,1,915 MHz omni antenna,Laird OD9-5,Laird,,Proven retained V1,Connected through J3; exact antenna variant/suffix not established beyond OD9-5

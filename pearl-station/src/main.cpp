@@ -83,9 +83,9 @@ static uint16_t crc16_ccitt(const uint8_t *data, size_t len, uint16_t crc = 0xFF
 
 // ====== CONFIG ======
 // --- WindSonic configuration ---
-#define USE_WINDSONIC 0 // 1 = live sensor, 0 = test generator
+#define USE_WINDSONIC 1 // 1 = live sensor, 0 = test generator
 #define WINDSONIC_BAUD 4800
-#define WIND_RX_PIN 19 // converter TXD -> this pin
+#define WIND_RX_PIN 6 // converter TTL output -> Heltec V4 J3 pin 17
 #define WIND_TX_PIN -1 // not sending to sensor
 
 // Heltec V4 OLED
@@ -887,14 +887,9 @@ static void getSample(float &spd_ms, float &dir_deg)
     g_windOk = true;
     return;
   }
-// In LAB (or when sensor data is missing), fall back to the simulator to keep
-// the 1 Hz loop producing values instead of NaNs.
-#ifdef ENV_LAB
-  simulateSample(spd_ms, dir_deg);
-#else
+  // Live input failed: do not substitute synthetic wind.
   spd_ms = NAN;
   dir_deg = NAN;
-#endif
 #else
   // existing simulator
   simulateSample(spd_ms, dir_deg);

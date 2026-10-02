@@ -1,0 +1,4283 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "b14de22b-8048-4b1b-880a-d9a9b3039210")
+	(paper "A3")
+	(title_block
+		(title "Pearl V2 — Final Intended Circuit")
+		(date "2026-10-01")
+		(rev "Audit 1")
+		(company "Pearl Island Weather Station")
+		(comment 1 "Schematic only — no PCB design")
+		(comment 2 "V2 breadboard circuit plus proven retained V1 protection")
+		(comment 3 "Source: current firmware, V1/V2 photos, project records, manufacturer data")
+		(comment 4 "Unestablished details are explicitly noted; no substitutions")
+	)
+	(lib_symbols
+		(symbol "pearl_v2_symbols:PEARL_ANTENNA"
+			(pin_names
+				(offset 1.016)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "AE"
+				(at 0 8.89 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "PEARL_ANTENNA"
+				(at 0 -8.89 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Field42" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "PEARL_ANTENNA_0_1"
+				(arc
+					(start 2.54 3.81)
+					(mid 0 1.27)
+					(end -2.54 3.81)
+					(stroke
+						(width 0.3048)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 3.81)
+					)
+					(stroke
+						(width 0.3048)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "PEARL_ANTENNA_1_1"
+				(pin passive line
+					(at -7.62 0 0)
+					(length 7.62)
+					(name "RF"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "pearl_v2_symbols:PEARL_BATTERY_INPUT"
+			(pin_names
+				(offset 1.016)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "J"
+				(at 0 7.62 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "PEARL_BATTERY_INPUT"
+				(at 0 -7.62 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Field42" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "PEARL_BATTERY_INPUT_0_1"
+				(rectangle
+					(start -6.35 5.08)
+					(end 6.35 -5.08)
+					(stroke
+						(width 0.3048)
+						(type solid)
+					)
+					(fill
+						(type background)
+					)
+				)
+			)
+			(symbol "PEARL_BATTERY_INPUT_1_1"
+				(pin passive line
+					(at 12.7 2.54 180)
+					(length 6.35)
+					(name "BATT_RAW_12V"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 12.7 -2.54 180)
+					(length 6.35)
+					(name "BATT_NEG"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "pearl_v2_symbols:PEARL_C"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "C"
+				(at 3.048 1.778 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "PEARL_C"
+				(at 3.048 -1.778 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Field42" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "PEARL_C_0_1"
+				(polyline
+					(pts
+						(xy -2.54 0.889) (xy 2.54 0.889)
+					)
+					(stroke
+						(width 0.3556)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.54 -0.889) (xy 2.54 -0.889)
+					)
+					(stroke
+						(width 0.3556)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "PEARL_C_1_1"
+				(pin passive line
+					(at 0 5.08 270)
+					(length 4.191)
+					(name "~"
+						(effects
+							(font
+								(size 1.016 1.016)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.016 1.016)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -5.08 90)
+					(length 4.191)
+					(name "~"
+						(effects
+							(font
+								(size 1.016 1.016)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.016 1.016)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "pearl_v2_symbols:PEARL_C_POL"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "C"
+				(at 3.556 1.778 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "PEARL_C_POL"
+				(at 3.556 -1.778 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Field42" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "PEARL_C_POL_0_1"
+				(polyline
+					(pts
+						(xy -2.54 0.889) (xy 2.54 0.889)
+					)
+					(stroke
+						(width 0.3556)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.54 -0.889) (xy 2.54 -0.889)
+					)
+					(stroke
+						(width 0.3556)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 3.683 2.286) (xy 5.207 2.286)
+					)
+					(stroke
+						(width 0.254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 4.445 1.524) (xy 4.445 3.048)
+					)
+					(stroke
+						(width 0.254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "PEARL_C_POL_1_1"
+				(pin passive line
+					(at 0 5.08 270)
+					(length 4.191)
+					(name "+"
+						(effects
+							(font
+								(size 1.016 1.016)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.016 1.016)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -5.08 90)
+					(length 4.191)
+					(name "-"
+						(effects
+							(font
+								(size 1.016 1.016)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.016 1.016)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "pearl_v2_symbols:PEARL_D_SCHOTTKY"
+			(pin_names
+				(offset 1.016)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "D"
+				(at 0 5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "PEARL_D_SCHOTTKY"
+				(at 0 -5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Field42" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "PEARL_D_SCHOTTKY_0_1"
+				(polyline
+					(pts
+						(xy -1.778 2.54) (xy 1.778 0) (xy -1.778 -2.54)
+					)
+					(stroke
+						(width 0.3048)
+						(type solid)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.397 -2.54) (xy 0.889 -2.032) (xy 0.889 -1.016)
+					)
+					(stroke
+						(width 0.3048)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.778 2.54) (xy 1.778 -2.54)
+					)
+					(stroke
+						(width 0.3048)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.159 2.54) (xy 2.667 2.032) (xy 2.667 1.016)
+					)
+					(stroke
+						(width 0.3048)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "PEARL_D_SCHOTTKY_1_1"
+				(pin passive line
+					(at -5.08 0 0)
+					(length 3.302)
+					(name "A"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 5.08 0 180)
+					(length 3.302)
+					(name "K"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "pearl_v2_symbols:PEARL_D_TVS"
+			(pin_names
+				(offset 1.016)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "D"
+				(at 4.064 0.508 90)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "PEARL_D_TVS"
+				(at -4.318 0 90)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Field42" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "PEARL_D_TVS_0_1"
+				(polyline
+					(pts
+						(xy -2.54 1.778) (xy 2.54 1.778)
+					)
+					(stroke
+						(width 0.3048)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.54 1.778) (xy -1.778 1.778) (xy -1.27 2.413)
+					)
+					(stroke
+						(width 0.3048)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.54 -1.778) (xy 0 1.778) (xy 2.54 -1.778)
+					)
+					(stroke
+						(width 0.3048)
+						(type solid)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.54 1.778) (xy 2.54 2.413)
+					)
+					(stroke
+						(width 0.3048)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "PEARL_D_TVS_1_1"
+				(pin passive line
+					(at 0 5.08 270)
+					(length 3.302)
+					(name "K"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -5.08 90)
+					(length 3.302)
+					(name "A"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "pearl_v2_symbols:PEARL_HELTEC_V4"
+			(pin_names
+				(offset 1.016)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "U"
+				(at 0 24.13 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.524 1.524)
+					)
+				)
+			)
+			(property "Value" "PEARL_HELTEC_V4"
+				(at 0 -24.13 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.524 1.524)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Field42" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "PEARL_HELTEC_V4_0_0"
+				(text "ONBOARD: ESP32-S3R2 + SX1262 + OLED"
+					(at 0 15.748 0)
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(text "LoRa NSS=8 DIO1=14 RST=12 BUSY=13"
+					(at 0 12.192 0)
+					(effects
+						(font
+							(size 1.143 1.143)
+						)
+					)
+				)
+				(text "SPI SCK=9 MISO=11 MOSI=10"
+					(at 0 9.144 0)
+					(effects
+						(font
+							(size 1.143 1.143)
+						)
+					)
+				)
+				(text "OLED SDA=17 SCL=18 RST=21 VEXT=36"
+					(at 0 6.096 0)
+					(effects
+						(font
+							(size 1.143 1.143)
+						)
+					)
+				)
+				(text "Heartbeat LED GPIO35"
+					(at 0 3.048 0)
+					(effects
+						(font
+							(size 1.143 1.143)
+						)
+					)
+				)
+				(text "Onboard USB-C: programming + serial diagnostics"
+					(at 0 -10.668 0)
+					(effects
+						(font
+							(size 1.143 1.143)
+						)
+					)
+				)
+			)
+			(symbol "PEARL_HELTEC_V4_0_1"
+				(rectangle
+					(start -16.51 20.32)
+					(end 16.51 -20.32)
+					(stroke
+						(width 0.4064)
+						(type solid)
+					)
+					(fill
+						(type background)
+					)
+				)
+			)
+			(symbol "PEARL_HELTEC_V4_1_1"
+				(pin power_in line
+					(at -22.86 10.16 0)
+					(length 6.35)
+					(name "GND"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+					(number "J2.1"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at -22.86 15.24 0)
+					(length 6.35)
+					(name "5V"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+					(number "J2.2"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -22.86 -5.08 0)
+					(length 6.35)
+					(name "GPIO2_ADC"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+					(number "J3.13"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -22.86 0 0)
+					(length 6.35)
+					(name "GPIO6_UART_RX"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+					(number "J3.17"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+				)
+				(pin bidirectional line
+					(at 22.86 15.24 180)
+					(length 6.35)
+					(name "LORA_IPEX"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+					(number "RF"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "pearl_v2_symbols:PEARL_OKI78SR"
+			(pin_names
+				(offset 1.016)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "U"
+				(at 0 8.89 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "PEARL_OKI78SR"
+				(at 0 -8.89 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Field42" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "PEARL_OKI78SR_0_1"
+				(rectangle
+					(start -8.89 6.35)
+					(end 8.89 -6.35)
+					(stroke
+						(width 0.3048)
+						(type solid)
+					)
+					(fill
+						(type background)
+					)
+				)
+			)
+			(symbol "PEARL_OKI78SR_1_1"
+				(pin power_in line
+					(at -15.24 2.54 0)
+					(length 6.35)
+					(name "+VIN"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 0 -12.7 90)
+					(length 6.35)
+					(name "GND"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+				)
+				(pin power_out line
+					(at 15.24 2.54 180)
+					(length 6.35)
+					(name "+VOUT"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "pearl_v2_symbols:PEARL_R"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "R"
+				(at 0 2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "PEARL_R"
+				(at 0 -2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Field42" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "PEARL_R_0_1"
+				(rectangle
+					(start -2.54 1.016)
+					(end 2.54 -1.016)
+					(stroke
+						(width 0.3048)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "PEARL_R_1_1"
+				(pin passive line
+					(at -5.08 0 0)
+					(length 2.54)
+					(name "~"
+						(effects
+							(font
+								(size 1.016 1.016)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.016 1.016)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 5.08 0 180)
+					(length 2.54)
+					(name "~"
+						(effects
+							(font
+								(size 1.016 1.016)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.016 1.016)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "pearl_v2_symbols:PEARL_RF_INTERCONNECT"
+			(pin_names
+				(offset 1.016)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "J"
+				(at 0 6.35 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "PEARL_RF_INTERCONNECT"
+				(at 0 -6.35 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Field42" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "PEARL_RF_INTERCONNECT_0_1"
+				(rectangle
+					(start -5.08 3.81)
+					(end 5.08 -3.81)
+					(stroke
+						(width 0.3048)
+						(type solid)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(polyline
+					(pts
+						(xy -5.08 0) (xy 5.08 0)
+					)
+					(stroke
+						(width 0.3048)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "PEARL_RF_INTERCONNECT_1_1"
+				(pin passive line
+					(at -10.16 0 0)
+					(length 5.08)
+					(name "IPEX1.0"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 10.16 0 180)
+					(length 5.08)
+					(name "SMA_BULKHEAD"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.143 1.143)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "pearl_v2_symbols:PEARL_WAVESHARE_RS422"
+			(pin_names
+				(offset 1.016)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "U"
+				(at 0 26.67 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.524 1.524)
+					)
+				)
+			)
+			(property "Value" "PEARL_WAVESHARE_RS422"
+				(at 0 -26.67 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.524 1.524)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Field42" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "PEARL_WAVESHARE_RS422_0_0"
+				(text "Waveshare TTL TO RS422 (B)"
+					(at 0 0 0)
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(text "Galvanically isolated module"
+					(at 0 -3.048 0)
+					(effects
+						(font
+							(size 1.0668 1.0668)
+						)
+					)
+				)
+			)
+			(symbol "PEARL_WAVESHARE_RS422_0_1"
+				(rectangle
+					(start -16.51 22.86)
+					(end 16.51 -22.86)
+					(stroke
+						(width 0.3556)
+						(type solid)
+					)
+					(fill
+						(type background)
+					)
+				)
+			)
+			(symbol "PEARL_WAVESHARE_RS422_1_1"
+				(pin power_in line
+					(at 24.13 5.08 180)
+					(length 7.62)
+					(name "LOGIC_GND"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+					(number "GND1"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 24.13 -5.08 180)
+					(length 7.62)
+					(name "LOGIC_GND"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+					(number "GND2"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -24.13 15.24 0)
+					(length 7.62)
+					(name "R+"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+					(number "R+"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -24.13 10.16 0)
+					(length 7.62)
+					(name "R-"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+					(number "R-"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at -24.13 5.08 0)
+					(length 7.62)
+					(name "RS422_GND"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+					(number "RGND"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 24.13 15.24 180)
+					(length 7.62)
+					(name "RXD_TO_MCU"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+					(number "RXD"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at -24.13 -5.08 0)
+					(length 7.62)
+					(name "T+_UNUSED"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+					(number "T+"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at -24.13 0 0)
+					(length 7.62)
+					(name "T-_UNUSED"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+					(number "T-"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 24.13 0 180)
+					(length 7.62)
+					(name "TXD_UNUSED"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+					(number "TXD"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 24.13 10.16 180)
+					(length 7.62)
+					(name "VCC"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+					(number "VCC"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "pearl_v2_symbols:PEARL_WINDSONIC"
+			(pin_names
+				(offset 1.016)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "J"
+				(at 0 26.67 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.524 1.524)
+					)
+				)
+			)
+			(property "Value" "PEARL_WINDSONIC"
+				(at 0 -26.67 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.524 1.524)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Field42" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "PEARL_WINDSONIC_0_0"
+				(text "Gill WindSonic 75"
+					(at 0 0 0)
+					(effects
+						(font
+							(size 1.2192 1.2192)
+						)
+					)
+				)
+			)
+			(symbol "PEARL_WINDSONIC_0_1"
+				(rectangle
+					(start -11.43 22.86)
+					(end 11.43 -22.86)
+					(stroke
+						(width 0.3556)
+						(type solid)
+					)
+					(fill
+						(type background)
+					)
+				)
+			)
+			(symbol "PEARL_WINDSONIC_1_1"
+				(pin passive line
+					(at 19.05 17.78 180)
+					(length 7.62)
+					(name "SIGNAL_GND"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 19.05 12.7 180)
+					(length 7.62)
+					(name "VSUPPLY+"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 19.05 7.62 180)
+					(length 7.62)
+					(name "VSUPPLY-"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 19.05 2.54 180)
+					(length 7.62)
+					(name "TXD+"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 19.05 -2.54 180)
+					(length 7.62)
+					(name "TXD-"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 19.05 -7.62 180)
+					(length 7.62)
+					(name "RXD+_UNUSED"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+					(number "6"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 19.05 -12.7 180)
+					(length 7.62)
+					(name "RXD-_UNUSED"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+					(number "7"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+				)
+				(pin no_connect line
+					(at 19.05 -17.78 180)
+					(length 7.62)
+					(name "PIN8_UNUSED"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+					(number "8"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+				)
+				(pin no_connect line
+					(at 19.05 -22.86 180)
+					(length 7.62)
+					(name "PIN9_UNUSED"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+					(number "9"
+						(effects
+							(font
+								(size 1.0668 1.0668)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(text "RF path is through the Heltec onboard IPEX1.0 LoRa connector."
+		(exclude_from_sim no)
+		(at 264.16 68.58 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "10319fcd-97f1-4aa1-a881-1c790d8f57dc")
+	)
+	(text "PROVEN RETAINED V1 POWER / PROTECTION"
+		(exclude_from_sim no)
+		(at 17.78 30.48 0)
+		(effects
+			(font
+				(size 2.286 2.286)
+				(thickness 0.4572)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "193b5d0a-c5bd-4882-a09d-fd8226cae17d")
+	)
+	(text "UNRESOLVED BUT NOT INVENTED"
+		(exclude_from_sim no)
+		(at 17.78 233.68 0)
+		(effects
+			(font
+				(size 1.651 1.651)
+				(thickness 0.3302)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "1d40f71f-4f88-4af6-beb6-1a535747b9f2")
+	)
+	(text "FINAL PEARL V2 = PROVEN V2 BREADBOARD + PROVEN RETAINED V1 CIRCUITRY"
+		(exclude_from_sim no)
+		(at 17.78 215.9 0)
+		(effects
+			(font
+				(size 2.286 2.286)
+				(thickness 0.4572)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "23e75d94-1063-4eb9-afbc-2ccadc88fb92")
+	)
+	(text "USB-C is the existing programming/serial diagnostic connection."
+		(exclude_from_sim no)
+		(at 257.81 114.3 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "28da2398-1ee8-4e0a-b6f2-6013856209bc")
+	)
+	(text "Retained V1: D1 1N5822 reverse-polarity series diode, D2 P6KE16A shunt TVS, and deployed WindSonic/RS-422 module path."
+		(exclude_from_sim no)
+		(at 17.78 222.885 0)
+		(effects
+			(font
+				(size 1.397 1.397)
+				(thickness 0.2794)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "2d353acf-032f-4989-9c70-172dae99c96a")
+	)
+	(text "NO PCB, FOOTPRINT SELECTION, OR PCB-SPECIFIC PROTECTION CHANGES ARE INCLUDED."
+		(exclude_from_sim no)
+		(at 17.78 249.555 0)
+		(effects
+			(font
+				(size 1.651 1.651)
+				(thickness 0.3302)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "3a42c299-1057-4530-986f-e57d6519584f")
+	)
+	(text "Updated WindSonic wiring: U2 RXD to GPIO6 / J3.17; 4800 baud, SERIAL_8N1."
+		(exclude_from_sim no)
+		(at 193.04 158.115 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "426c6868-b98b-4e7e-aa84-0d786a1ea341")
+	)
+	(text "WindSonic RX assignment updated to GPIO6/J3.17; all other circuitry and values are preserved."
+		(exclude_from_sim no)
+		(at 17.78 245.745 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "4bf2e38e-d99a-4ea8-a9fe-970fd39bf142")
+	)
+	(text "FINAL PEARL V2 SCHEMATIC — SCHEMATIC ONLY / NO PCB"
+		(exclude_from_sim no)
+		(at 17.78 16.51 0)
+		(effects
+			(font
+				(size 3.048 3.048)
+				(thickness 0.6096)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "4f3cd20f-ca0a-49e5-838d-6e0c2352a35e")
+	)
+	(text "U1 pins: 1=+VIN, 2=GND, 3=+5V"
+		(exclude_from_sim no)
+		(at 100.33 62.23 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "56973d01-7f70-4cf8-916a-93fb5c494b41")
+	)
+	(text "WindSonic RX is GPIO6 / J3.17; GPIO19/20 remain dedicated to native USB."
+		(exclude_from_sim no)
+		(at 193.04 161.29 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "66f73395-c769-4123-8324-82223538d76b")
+	)
+	(text "C1 black electrolytic: positive to DIVIDER_NODE, negative to GND"
+		(exclude_from_sim no)
+		(at 91.44 113.03 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "6ae0df3a-8050-4488-8757-ec43c4a5ae25")
+	)
+	(text "Base-station connection is RF only; there is no wired Pearl/base net."
+		(exclude_from_sim no)
+		(at 264.16 73.66 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "7975f55b-ec0f-47e2-aeef-76e7f29eea44")
+	)
+	(text "Connector manufacturer part numbers, resistor tolerances/wattages, capacitor voltage ratings, RS-422 termination-jumper state, and RF pigtail part number are not established."
+		(exclude_from_sim no)
+		(at 17.78 239.395 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "7a948a66-ccac-477d-b0c5-c6a105924843")
+	)
+	(text "V2 breadboard: Murata 12 V-to-5 V regulator, exact R1/R2/R3 + C1/C2 ADC network, ADC GPIO2, WindSonic RX GPIO6, OLED and LoRa diagnostics."
+		(exclude_from_sim no)
+		(at 17.78 226.06 0)
+		(effects
+			(font
+				(size 1.397 1.397)
+				(thickness 0.2794)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "8190ae38-ea59-4e39-bd1a-cc40f4a40a0d")
+	)
+	(text "OLED and GPIO35 heartbeat LED are onboard diagnostic devices."
+		(exclude_from_sim no)
+		(at 257.81 117.475 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "8210eb52-0841-40bf-8e25-958aaf254bfc")
+	)
+	(text "U2 RXD is the TTL receiver output; U2 TXD and differential T+/T- are unused."
+		(exclude_from_sim no)
+		(at 193.04 164.465 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "8cade9c2-3725-4066-8233-962acfa9cc62")
+	)
+	(text "Field build is 915 MHz; lab build is 914 MHz. Both use the retained 915 MHz antenna."
+		(exclude_from_sim no)
+		(at 264.16 71.12 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "a2c72042-102c-48f7-802e-13f4a1c23f81")
+	)
+	(text "WindSonic option number and the functions of its unused pins 8/9 are not established. Exact protection-part values inside the purchased U2 module are not expanded."
+		(exclude_from_sim no)
+		(at 17.78 242.57 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "a8022e0a-90a8-4367-a60d-88af07941195")
+	)
+	(text "Proven V2 breadboard circuitry is combined with proven retained V1 input protection. Provenance is marked per section."
+		(exclude_from_sim no)
+		(at 17.78 22.86 0)
+		(effects
+			(font
+				(size 1.905 1.905)
+				(thickness 0.381)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "b8382c85-b0f2-4732-9593-ea3d18c6b6c9")
+	)
+	(text "U2 internal optional 120 Ω termination jumper state is not visible in project evidence."
+		(exclude_from_sim no)
+		(at 193.04 167.64 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "b86fb7a3-d42b-42be-aeb5-b6a0c1c9fdc4")
+	)
+	(text "PROVEN WINDSONIC / RS-422 INPUT PATH"
+		(exclude_from_sim no)
+		(at 17.78 132.08 0)
+		(effects
+			(font
+				(size 2.286 2.286)
+				(thickness 0.4572)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "bd428730-ffe9-432b-86d7-03a33bb0ffaf")
+	)
+	(text "D2 unidirectional: cathode to PROTECTED_12V, anode to GND"
+		(exclude_from_sim no)
+		(at 82.55 54.61 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "bf4c1ad4-4e6f-4e5a-bc45-89aa3efcd79c")
+	)
+	(text "D1 band/cathode toward PROTECTED_12V"
+		(exclude_from_sim no)
+		(at 72.39 34.29 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "bf685bd3-6a68-4305-bc71-47f62eb32309")
+	)
+	(text "C2 orange ceramic disc"
+		(exclude_from_sim no)
+		(at 135.89 113.03 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "cd76288e-56b8-4ab9-9495-6904632214e4")
+	)
+	(text "Except for the specifically identified purple jumper, other wire colors are not treated as pin identity."
+		(exclude_from_sim no)
+		(at 17.78 247.65 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "ef2b7adc-288c-46fe-904c-b92b2944588e")
+	)
+	(text "PROVEN V2 BREADBOARD — BATTERY DIVIDER / ADC FILTER"
+		(exclude_from_sim no)
+		(at 17.78 72.39 0)
+		(effects
+			(font
+				(size 2.286 2.286)
+				(thickness 0.4572)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "f009702e-19c8-4a3b-be9c-329f94d9fa63")
+	)
+	(junction
+		(at 78.74 58.42)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "2490f7ed-2555-46e0-abe0-0128858640ba")
+	)
+	(junction
+		(at 83.82 83.82)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "37f96628-6274-460c-acd5-b82872e985e7")
+	)
+	(junction
+		(at 78.74 39.37)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "47aaa858-703e-460b-9ec1-c9ba243059e7")
+	)
+	(junction
+		(at 102.87 107.95)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "7e9c7a93-5b0c-4c3f-b00e-a5d1d4a31d25")
+	)
+	(junction
+		(at 102.87 83.82)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "949d12de-faf4-4cd1-b0bb-2433242c82a5")
+	)
+	(junction
+		(at 147.32 83.82)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "b06f5c05-4b8d-489c-a830-22a369d446e1")
+	)
+	(no_connect
+		(at 111.76 180.34)
+		(uuid "0a89f233-bf62-4a0f-bfbc-230bf1739080")
+	)
+	(no_connect
+		(at 111.76 175.26)
+		(uuid "2a4f6411-7846-464c-98cb-9ba35db6248c")
+	)
+	(no_connect
+		(at 60.96 198.12)
+		(uuid "81d11efd-a23e-4675-a747-2911cc294957")
+	)
+	(no_connect
+		(at 160.02 175.26)
+		(uuid "97aea973-9e4d-4441-91f2-48201ee684e1")
+	)
+	(no_connect
+		(at 60.96 187.96)
+		(uuid "bbb93dca-c7e1-4d6e-bd8c-294fb56fc467")
+	)
+	(no_connect
+		(at 60.96 182.88)
+		(uuid "ccdb3c53-6d9a-4a0c-a4be-9e91a0536f53")
+	)
+	(no_connect
+		(at 60.96 193.04)
+		(uuid "d5f9e299-84a2-4cc7-b770-8f27e32b68ab")
+	)
+	(wire
+		(pts
+			(xy 132.08 83.82) (xy 165.1 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "036d8ab6-cd10-4631-a52c-6e663b76583a")
+	)
+	(wire
+		(pts
+			(xy 60.96 157.48) (xy 78.74 157.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "055ab73c-9e74-4ead-8a10-686cdc492aa7")
+	)
+	(wire
+		(pts
+			(xy 83.82 102.87) (xy 83.82 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "05846c5a-0615-4cc4-8ec6-515409f25629")
+	)
+	(wire
+		(pts
+			(xy 284.48 83.82) (xy 294.64 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "058b3bc9-211f-46f7-9724-94d5ac64c11f")
+	)
+	(wire
+		(pts
+			(xy 113.03 54.61) (xy 113.03 58.42)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0a51b572-3fe5-4938-a31e-47e2680f434f")
+	)
+	(wire
+		(pts
+			(xy 102.87 102.87) (xy 102.87 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0def763c-c161-437c-abab-70840dcf9033")
+	)
+	(wire
+		(pts
+			(xy 101.6 170.18) (xy 111.76 170.18)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "120ec175-aaed-4da5-acdc-e3fa7b90cee9")
+	)
+	(wire
+		(pts
+			(xy 200.66 99.06) (xy 210.82 99.06)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "16ba8799-1d1a-4c46-979a-1aff8f602332")
+	)
+	(wire
+		(pts
+			(xy 67.31 39.37) (xy 97.79 39.37)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "17ab8cc1-ac03-453b-9716-ab7a057dc7f3")
+	)
+	(wire
+		(pts
+			(xy 83.82 83.82) (xy 83.82 92.71)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1ff9ccf7-8b8e-4059-8c08-c6c14a819431")
+	)
+	(wire
+		(pts
+			(xy 203.2 88.9) (xy 210.82 88.9)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2a401524-01ce-41d6-b555-0e27843ed7fb")
+	)
+	(wire
+		(pts
+			(xy 52.07 83.82) (xy 57.15 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3809d550-7278-4c9c-841b-715b85dd9f89")
+	)
+	(wire
+		(pts
+			(xy 78.74 39.37) (xy 78.74 43.18)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "39dd04fd-fd79-4080-af16-5faac2727d34")
+	)
+	(wire
+		(pts
+			(xy 67.31 83.82) (xy 121.92 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5cc761e9-f476-44d2-a896-cfccba3d679c")
+	)
+	(wire
+		(pts
+			(xy 101.6 165.1) (xy 111.76 165.1)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "60c894c1-fe49-4121-bfdc-aa0e737a40ca")
+	)
+	(wire
+		(pts
+			(xy 160.02 180.34) (xy 175.26 180.34)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "63828e6d-9321-41cf-8ca0-4d9bc0be8458")
+	)
+	(wire
+		(pts
+			(xy 60.96 162.56) (xy 78.74 162.56)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6b9dcde2-a6a0-40f8-9e23-1fecec551ed9")
+	)
+	(wire
+		(pts
+			(xy 45.72 58.42) (xy 113.03 58.42)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7e8bb8c7-ca27-46e9-b820-fe38ce3e5ad6")
+	)
+	(wire
+		(pts
+			(xy 165.1 104.14) (xy 210.82 104.14)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8e4ed290-af5f-4314-b1c9-5209c5f7e98f")
+	)
+	(wire
+		(pts
+			(xy 147.32 102.87) (xy 147.32 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8f4f8416-9620-4288-979d-ebb8863ce5da")
+	)
+	(wire
+		(pts
+			(xy 45.72 44.45) (xy 45.72 58.42)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "93fcdd39-55a4-4cc8-97be-32b3af3b0538")
+	)
+	(wire
+		(pts
+			(xy 160.02 160.02) (xy 180.34 160.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9895f9f0-b367-4faf-805b-0281321fee5b")
+	)
+	(wire
+		(pts
+			(xy 160.02 170.18) (xy 175.26 170.18)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "99ce396c-f2e2-4148-bb96-1fe7707c7aa7")
+	)
+	(wire
+		(pts
+			(xy 45.72 39.37) (xy 57.15 39.37)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a6adeca0-1162-4396-b849-03df6eee9a29")
+	)
+	(wire
+		(pts
+			(xy 78.74 53.34) (xy 78.74 58.42)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a81a089f-b501-4caf-b066-12c0291c4d99")
+	)
+	(wire
+		(pts
+			(xy 101.6 160.02) (xy 111.76 160.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a8a48d17-d535-40ea-8172-060d708ec66a")
+	)
+	(wire
+		(pts
+			(xy 102.87 83.82) (xy 102.87 92.71)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ba404837-77d3-4c9f-a45e-c2d3327b34a5")
+	)
+	(wire
+		(pts
+			(xy 60.96 177.8) (xy 83.82 177.8)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bdac13fe-35b2-4651-871e-e7c4ec5c93a9")
+	)
+	(wire
+		(pts
+			(xy 60.96 172.72) (xy 83.82 172.72)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bfc0fe90-3110-445b-8f7a-78e70355b8fa")
+	)
+	(wire
+		(pts
+			(xy 203.2 83.82) (xy 210.82 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c16e9c0e-d01c-4707-b8c9-9bd205536ecb")
+	)
+	(wire
+		(pts
+			(xy 147.32 83.82) (xy 147.32 92.71)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c45ec80c-2e5d-4532-8f57-35df5d3d899d")
+	)
+	(wire
+		(pts
+			(xy 102.87 107.95) (xy 147.32 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cc01caf3-d308-48f6-8315-df6629eb07d6")
+	)
+	(wire
+		(pts
+			(xy 256.54 83.82) (xy 264.16 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cc12c808-c9fe-4d19-822e-3dc0bd09df1a")
+	)
+	(wire
+		(pts
+			(xy 83.82 107.95) (xy 102.87 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cc4facd1-0abd-4445-bc46-a62a970f4c11")
+	)
+	(wire
+		(pts
+			(xy 160.02 165.1) (xy 175.26 165.1)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dc982ca7-4b13-4bc7-a2a2-f087059ca249")
+	)
+	(wire
+		(pts
+			(xy 60.96 167.64) (xy 78.74 167.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "df56bede-1370-4195-b5cd-8f4739f8a792")
+	)
+	(wire
+		(pts
+			(xy 175.26 170.18) (xy 175.26 180.34)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e2e2d3c4-abcb-48bf-a7c9-41e569bac93c")
+	)
+	(wire
+		(pts
+			(xy 165.1 83.82) (xy 165.1 104.14)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f0b50180-995a-4b14-8071-450342d7bc6f")
+	)
+	(wire
+		(pts
+			(xy 128.27 39.37) (xy 143.51 39.37)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f47efe41-5e97-4043-b12f-c9af8c18e3dd")
+	)
+	(label "+5V"
+		(at 163.83 165.1 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "0036d168-6d32-4b00-a06f-6b87c9855d03")
+	)
+	(label "GND"
+		(at 48.26 58.42 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "00a9a67d-7975-4260-b65d-42dce94639a4")
+	)
+	(label "WIND_SIGNAL_GND"
+		(at 101.6 170.18 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "0efe9f00-29cc-49ad-91b9-4af6469d867c")
+	)
+	(label "WIND_UART_RX_GPIO6"
+		(at 200.66 99.06 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "27da6403-6453-4fc4-87e1-dba8cdaa91ad")
+	)
+	(label "GND"
+		(at 163.83 170.18 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "4dd05392-785d-4eac-ab24-482ceb8939ed")
+	)
+	(label "PROTECTED_12V"
+		(at 52.07 83.82 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "5c57e1a0-579c-4923-842c-f515eb88e8ec")
+	)
+	(label "DIVIDER_NODE"
+		(at 72.39 83.82 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "6216c66a-5169-4d46-92a2-41b157fa21a0")
+	)
+	(label "GND"
+		(at 62.23 167.64 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "650c2efb-f284-458d-93d0-132535acd047")
+	)
+	(label "GND"
+		(at 87.63 107.95 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "69c5d7ae-d513-4f0e-9b9b-3aee22abd929")
+	)
+	(label "PROTECTED_12V"
+		(at 68.58 39.37 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "743af8ab-37ac-4eb3-8360-52d4f4cebcc8")
+	)
+	(label "+5V"
+		(at 130.81 39.37 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "7b505486-60b7-4017-9385-8ccaf0a24574")
+	)
+	(label "+5V"
+		(at 203.2 83.82 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "7d3c5e6d-c399-42bc-a450-1145331a1d5a")
+	)
+	(label "WIND_TXD+"
+		(at 101.6 160.02 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "8676b885-b5f8-47f4-89d3-c3a9e9329b92")
+	)
+	(label "BATT_RAW_12V"
+		(at 46.99 39.37 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "9e50a721-e1cc-4b9b-89d8-6ac4ca9ecb8a")
+	)
+	(label "WIND_UART_RX_GPIO6"
+		(at 163.83 160.02 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "a59be809-7cb5-4659-bae1-4f24c9878100")
+	)
+	(label "ADC_NODE"
+		(at 175.26 104.14 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "ae9fd3c2-d0fc-4cdb-a6f4-4abaf091f33a")
+	)
+	(label "WIND_TXD+"
+		(at 63.5 172.72 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "b1bac14d-3d34-4a93-8d35-472c737aea1c")
+	)
+	(label "LORA_RF"
+		(at 261.62 83.82 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "b3922d61-0c57-4d0a-a8d7-158818dae5b7")
+	)
+	(label "ADC_NODE"
+		(at 135.89 83.82 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "c385de2a-50b6-44f9-8bc2-abf471b9b79b")
+	)
+	(label "GND"
+		(at 203.2 88.9 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "c954a9ac-bec7-4b21-893b-6ca36d3d7364")
+	)
+	(label "WIND_TXD-"
+		(at 101.6 165.1 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "cccb32dc-838d-452e-924b-9e1a113e865c")
+	)
+	(label "WIND_SIGNAL_GND"
+		(at 62.23 157.48 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "d3d9ae73-ea5f-4c7f-b8c5-504d944c9ab7")
+	)
+	(label "PROTECTED_12V"
+		(at 62.23 162.56 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "f81face4-204b-4b2c-a1d1-b5621a64b76d")
+	)
+	(label "WIND_TXD-"
+		(at 63.5 177.8 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "f917957c-4b10-422f-9717-98d87e42e8f7")
+	)
+	(symbol
+		(lib_id "pearl_v2_symbols:PEARL_BATTERY_INPUT")
+		(at 33.02 41.91 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "00000000-0000-0000-0000-000000001001")
+		(property "Reference" "J1"
+			(at 33.02 33.02 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "12 V BATTERY INPUT"
+			(at 33.02 50.8 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 33.02 41.91 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 33.02 41.91 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 33.02 41.91 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "ccc38622-43b2-4729-b21a-780cd5cadb8c")
+		)
+		(pin "2"
+			(uuid "b4588cfb-6b6e-428c-8634-77d599602ed9")
+		)
+		(instances
+			(project "pearl_v2_schematic"
+				(path "/b14de22b-8048-4b1b-880a-d9a9b3039210"
+					(reference "J1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "pearl_v2_symbols:PEARL_D_SCHOTTKY")
+		(at 62.23 39.37 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "00000000-0000-0000-0000-000000001002")
+		(property "Reference" "D1"
+			(at 62.23 33.655 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "1N5822"
+			(at 62.23 45.085 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 62.23 39.37 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 62.23 39.37 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 62.23 39.37 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "50603b08-26cb-412b-968a-ff9820553a89")
+		)
+		(pin "2"
+			(uuid "b9b66504-bf2c-4ce2-9bff-5e8af8ef2198")
+		)
+		(instances
+			(project "pearl_v2_schematic"
+				(path "/b14de22b-8048-4b1b-880a-d9a9b3039210"
+					(reference "D1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "pearl_v2_symbols:PEARL_D_TVS")
+		(at 78.74 48.26 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "00000000-0000-0000-0000-000000001003")
+		(property "Reference" "D2"
+			(at 83.82 47.625 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "P6KE16A"
+			(at 83.82 50.165 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 78.74 48.26 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 78.74 48.26 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 78.74 48.26 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a330f0e4-f44b-4251-9f9a-1d1febeeace7")
+		)
+		(pin "2"
+			(uuid "a733477a-33e1-49ad-a1ee-89367368f82f")
+		)
+		(instances
+			(project "pearl_v2_schematic"
+				(path "/b14de22b-8048-4b1b-880a-d9a9b3039210"
+					(reference "D2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "pearl_v2_symbols:PEARL_OKI78SR")
+		(at 113.03 41.91 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "00000000-0000-0000-0000-000000001004")
+		(property "Reference" "U1"
+			(at 113.03 31.75 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "OKI-78SR-5/1.5-W36H-C"
+			(at 113.03 52.07 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 113.03 41.91 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 113.03 41.91 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 113.03 41.91 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "fd314144-b153-414c-962e-c99dd7040a9e")
+		)
+		(pin "2"
+			(uuid "7c6659a5-28e2-4521-b6a3-972407e97b02")
+		)
+		(pin "3"
+			(uuid "7a846cf6-402b-42cf-956b-f764de8e1d02")
+		)
+		(instances
+			(project "pearl_v2_schematic"
+				(path "/b14de22b-8048-4b1b-880a-d9a9b3039210"
+					(reference "U1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "pearl_v2_symbols:PEARL_R")
+		(at 62.23 83.82 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "00000000-0000-0000-0000-000000001101")
+		(property "Reference" "R1"
+			(at 62.23 81.28 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "4.7 kΩ"
+			(at 62.23 86.36 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 62.23 83.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 62.23 83.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 62.23 83.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "333047aa-c470-42e8-a1c1-8e6e2bd08ec2")
+		)
+		(pin "2"
+			(uuid "58f50b54-f997-4f08-bab8-8ce0c6c24ab6")
+		)
+		(instances
+			(project "pearl_v2_schematic"
+				(path "/b14de22b-8048-4b1b-880a-d9a9b3039210"
+					(reference "R1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "pearl_v2_symbols:PEARL_R")
+		(at 83.82 97.79 270)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "00000000-0000-0000-0000-000000001102")
+		(property "Reference" "R2"
+			(at 86.36 97.79 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "1 kΩ"
+			(at 81.28 97.79 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 83.82 97.79 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 83.82 97.79 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 83.82 97.79 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "ee035b89-fb80-4abf-b860-2442c07f1f1a")
+		)
+		(pin "2"
+			(uuid "fe12e603-cfd1-4ea8-a29e-38573fb1413a")
+		)
+		(instances
+			(project "pearl_v2_schematic"
+				(path "/b14de22b-8048-4b1b-880a-d9a9b3039210"
+					(reference "R2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "pearl_v2_symbols:PEARL_C_POL")
+		(at 102.87 97.79 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "00000000-0000-0000-0000-000000001103")
+		(property "Reference" "C1"
+			(at 106.68 95.885 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "1 µF electrolytic"
+			(at 106.68 98.425 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 102.87 97.79 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 102.87 97.79 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 102.87 97.79 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "33d36796-83c4-47da-a1c4-8ce3501f25e4")
+		)
+		(pin "2"
+			(uuid "99d9688d-092d-4082-afe3-1ceca0da380d")
+		)
+		(instances
+			(project "pearl_v2_schematic"
+				(path "/b14de22b-8048-4b1b-880a-d9a9b3039210"
+					(reference "C1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "pearl_v2_symbols:PEARL_R")
+		(at 127 83.82 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "00000000-0000-0000-0000-000000001104")
+		(property "Reference" "R3"
+			(at 127 81.28 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "100 Ω"
+			(at 127 86.36 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 127 83.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 127 83.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 127 83.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "30bad549-4d8c-4122-8191-39d65348e0d4")
+		)
+		(pin "2"
+			(uuid "15b7b3d6-f8e6-4f66-84fc-fa340a74179d")
+		)
+		(instances
+			(project "pearl_v2_schematic"
+				(path "/b14de22b-8048-4b1b-880a-d9a9b3039210"
+					(reference "R3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "pearl_v2_symbols:PEARL_C")
+		(at 147.32 97.79 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "00000000-0000-0000-0000-000000001105")
+		(property "Reference" "C2"
+			(at 151.13 95.885 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "0.1 µF ceramic"
+			(at 151.13 98.425 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 147.32 97.79 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 147.32 97.79 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 147.32 97.79 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "1c8ff4df-0294-44ce-b7ac-479be6bfa689")
+		)
+		(pin "2"
+			(uuid "628b6875-96ab-41f2-bc9c-207b0e897707")
+		)
+		(instances
+			(project "pearl_v2_schematic"
+				(path "/b14de22b-8048-4b1b-880a-d9a9b3039210"
+					(reference "C2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "pearl_v2_symbols:PEARL_HELTEC_V4")
+		(at 233.68 99.06 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "00000000-0000-0000-0000-000000001201")
+		(property "Reference" "U3"
+			(at 233.68 73.025 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.524 1.524)
+				)
+			)
+		)
+		(property "Value" "Heltec WiFi LoRa 32 V4"
+			(at 233.68 125.095 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.524 1.524)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 233.68 99.06 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 233.68 99.06 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 233.68 99.06 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "J2.1"
+			(uuid "0f36f309-0867-44d8-9721-595666e4f094")
+		)
+		(pin "J2.2"
+			(uuid "be972199-a73c-4268-8676-6e099fa9ead9")
+		)
+		(pin "J3.13"
+			(uuid "33e566dc-c96d-42cb-b3e2-b71705c70d24")
+		)
+		(pin "J3.17"
+			(uuid "c5744409-e3eb-4723-afa4-43148c3a54da")
+		)
+		(pin "RF"
+			(uuid "d6d9467b-fbab-4525-accc-091866ed65d7")
+		)
+		(instances
+			(project "pearl_v2_schematic"
+				(path "/b14de22b-8048-4b1b-880a-d9a9b3039210"
+					(reference "U3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "pearl_v2_symbols:PEARL_RF_INTERCONNECT")
+		(at 274.32 83.82 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "00000000-0000-0000-0000-000000001202")
+		(property "Reference" "J3"
+			(at 274.32 77.47 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "IPEX1.0-to-SMA bulkhead pigtail"
+			(at 274.32 90.17 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 274.32 83.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 274.32 83.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 274.32 83.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "acb10455-2a42-461f-9514-56a23cb42be1")
+		)
+		(pin "2"
+			(uuid "028325f5-9bdb-4919-8677-391e567913ab")
+		)
+		(instances
+			(project "pearl_v2_schematic"
+				(path "/b14de22b-8048-4b1b-880a-d9a9b3039210"
+					(reference "J3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "pearl_v2_symbols:PEARL_ANTENNA")
+		(at 302.26 83.82 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "00000000-0000-0000-0000-000000001203")
+		(property "Reference" "AE1"
+			(at 302.26 73.66 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "Laird OD9-5"
+			(at 302.26 93.98 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 302.26 83.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 302.26 83.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 302.26 83.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "65c12281-ce6a-438b-b908-30d8e6962863")
+		)
+		(instances
+			(project "pearl_v2_schematic"
+				(path "/b14de22b-8048-4b1b-880a-d9a9b3039210"
+					(reference "AE1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "pearl_v2_symbols:PEARL_WINDSONIC")
+		(at 41.91 175.26 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "00000000-0000-0000-0000-000000001301")
+		(property "Reference" "J2"
+			(at 41.91 146.05 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.524 1.524)
+				)
+			)
+		)
+		(property "Value" "Gill WindSonic 75 — 9-way circular"
+			(at 41.91 204.47 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.524 1.524)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 41.91 175.26 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 41.91 175.26 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 41.91 175.26 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "7d04e476-5cf8-4523-ad35-7a8e1a0fff32")
+		)
+		(pin "2"
+			(uuid "01eec192-8b1b-451a-9255-afcfaf377ea1")
+		)
+		(pin "3"
+			(uuid "07597697-7618-4e66-abcd-154125ddab31")
+		)
+		(pin "4"
+			(uuid "a35725db-1ee3-477a-899d-85dd3c0d47c5")
+		)
+		(pin "5"
+			(uuid "6790eb54-0ddc-4883-bcf9-ef140ec7d7fe")
+		)
+		(pin "6"
+			(uuid "ac7be148-2670-4a0e-bddc-8ec46e8854d0")
+		)
+		(pin "7"
+			(uuid "ff13b6fd-f389-48ed-94e6-bb3165d210c4")
+		)
+		(pin "8"
+			(uuid "26f4708e-9c4f-4892-ba0c-76d1ccbb3a62")
+		)
+		(pin "9"
+			(uuid "8ab37104-c38f-4348-9254-d7349e7f3f8d")
+		)
+		(instances
+			(project "pearl_v2_schematic"
+				(path "/b14de22b-8048-4b1b-880a-d9a9b3039210"
+					(reference "J2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "pearl_v2_symbols:PEARL_WAVESHARE_RS422")
+		(at 135.89 175.26 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "00000000-0000-0000-0000-000000001302")
+		(property "Reference" "U2"
+			(at 135.89 146.05 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.524 1.524)
+				)
+			)
+		)
+		(property "Value" "Waveshare TTL TO RS422 (B), SKU 23652"
+			(at 135.89 204.47 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.524 1.524)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 135.89 175.26 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 135.89 175.26 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 135.89 175.26 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "TXD"
+			(uuid "307efe42-67f3-414c-87cc-5732b815234c")
+		)
+		(pin "VCC"
+			(uuid "f1a30deb-d3da-47f5-bf48-614aeba6355b")
+		)
+		(pin "T-"
+			(uuid "94036104-7bd0-45fd-b6d6-be1d04cbaf24")
+		)
+		(pin "T+"
+			(uuid "39fdd614-be47-4c3c-ae6f-7347efb88da6")
+		)
+		(pin "RXD"
+			(uuid "44447052-b63e-4523-b3bd-63cebb4a2355")
+		)
+		(pin "RGND"
+			(uuid "92f6db2d-98e5-4089-955f-b834f05601ef")
+		)
+		(pin "R-"
+			(uuid "6832481e-e8e5-4817-beed-bc0ceaca4c53")
+		)
+		(pin "R+"
+			(uuid "30bcb716-f2a5-4d58-a62e-20c011ae96f1")
+		)
+		(pin "GND2"
+			(uuid "7ff6225e-2af7-4500-874d-1d2e35106050")
+		)
+		(pin "GND1"
+			(uuid "d3ca9563-5df4-45e2-9b66-eae7560993ba")
+		)
+		(instances
+			(project "pearl_v2_schematic"
+				(path "/b14de22b-8048-4b1b-880a-d9a9b3039210"
+					(reference "U2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+	(embedded_fonts no)
+)

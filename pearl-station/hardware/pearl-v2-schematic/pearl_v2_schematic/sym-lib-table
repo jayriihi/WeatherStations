@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "pearl_v2_symbols") (type "KiCad") (uri "${KIPRJMOD}/pearl_v2_symbols.kicad_sym") (options "") (descr "Preserved Pearl V2 custom symbols; WindSonic RX GPIO6 J3.17"))
+)
