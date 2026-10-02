@@ -52,3 +52,12 @@ base-station/backups/main.bakuppreACK6Nov2025.cpp
 base-station/backups/maincpp.bakup
 pearl-station/backups/main.bakup 13Nov2025 pretest with windsonic.cpp
 pearl-station/src_saved/main batt test.cpp
+
+# KiCad local preferences
+*.kicad_prl
+*.kicad_prl-bak
+
+# Blank schematic-project PCB only; future PCB designs remain trackable
+/pearl-station/hardware/pearl-v2-schematic/pearl_v2_schematic/pearl_v2_schematic.kicad_pcb
+hardware/pearl-v2-schematic/pearl_v2_schematic/pearl_v2_schematic.kicad_pcb
+windsonic-generator/
