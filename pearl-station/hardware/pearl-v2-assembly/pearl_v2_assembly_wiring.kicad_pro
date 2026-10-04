@@ -1,0 +1,5 @@
+{
+  "schematic": {
+    "page_layout_descr_file": "${KIPRJMOD}/assembly_page.kicad_wks"
+  }
+}
